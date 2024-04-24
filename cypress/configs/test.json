@@ -1,0 +1,12 @@
+{
+    "baseUrl": "https://www.saucedemo.com",
+    
+    "env": {
+        "login": {
+            "username": "standard_user",
+            "password": "secret_sauce"
+        },
+
+        "api": "https://reqres.in"
+    }
+}
