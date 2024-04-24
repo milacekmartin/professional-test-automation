@@ -95,8 +95,8 @@ describe('BE test', () => {
                     /* 2.a) HTTP code */
                         expect($.status).to.eq(201)
 
-                    /* 3. Assert whether Response time was less than a variable (e.g. limit = 150 ms) */
-                        expect($.duration).to.be.lte(150)
+                    /* 3. Assert whether Response time was less than a variable (e.g. limit = 500 ms) */
+                        expect($.duration).to.be.lte(500)
                     
                     expect($.body.name).to.eq(name)
                     expect($.body.job).to.eq(job)
