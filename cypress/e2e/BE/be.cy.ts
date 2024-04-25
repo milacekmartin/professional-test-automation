@@ -81,13 +81,13 @@ describe('BE test', () => {
                     job: job
                 
                 }).then(($: { 
-                    status: any 
-                    duration: any 
+                    status: number 
+                    duration: number 
                     
                     body: { 
-                        name: any 
-                        job: any 
-                        id: any 
+                        name: string 
+                        job: string 
+                        id: string 
                         createdAt: string | number | Date 
                     } 
                 
