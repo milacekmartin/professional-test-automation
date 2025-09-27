@@ -25,7 +25,6 @@ pipeline {
         ALLURE_RESULTS_DIR = 'allure-results'
         ALLURE_REPORT_DIR = 'allure/report'
         PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
-        // Nastavenie npm cache do workspace
         NPM_CONFIG_CACHE = "${WORKSPACE}/.npm-cache"
         NPM_CONFIG_PREFIX = "${WORKSPACE}/.npm-global"
     }
@@ -38,13 +37,13 @@ pipeline {
             }
         }
         
-        stage('Setup Environment') {
+        stage('Setup Environment & Check Node.js') {
             steps {
                 script {
                     sh '''
-                        echo "=== Setting up environment ==="
+                        echo "=== Checking Node.js version compatibility ==="
                         
-                        # Vytvor adresáre s požadovanými právami
+                        # Vytvor adresáre
                         mkdir -p "${NPM_CONFIG_CACHE}"
                         mkdir -p "${NPM_CONFIG_PREFIX}"
                         mkdir -p "${CYPRESS_CACHE_FOLDER}"
@@ -52,14 +51,72 @@ pipeline {
                         # Nastavenie PATH
                         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
                         
-                        # Overenie Node.js a npm
-                        echo "Node.js version: $(node --version)"
+                        # Overenie verzií
+                        NODE_VERSION=$(node --version | sed 's/v//g' | cut -d. -f1)
+                        echo "Current Node.js major version: $NODE_VERSION"
                         echo "NPM version: $(npm --version)"
-                        echo "NPM cache location: ${NPM_CONFIG_CACHE}"
-                        echo "NPM global location: ${NPM_CONFIG_PREFIX}"
                         
-                        # Vyčisti npm cache ak je potrebné
+                        # Check Node.js version compatibility
+                        if [ "$NODE_VERSION" -lt "20" ]; then
+                            echo "WARNING: Node.js version $NODE_VERSION is below required version 20 for Cypress 15.3.0"
+                            echo "Attempting to use older Cypress version or install newer Node.js..."
+                            
+                            # Pokus o aktualizáciu Node.js
+                            if command -v brew &> /dev/null; then
+                                echo "Trying to install Node.js 20 via Homebrew..."
+                                brew install node@20 || {
+                                    echo "Failed to install Node.js 20, continuing with current version"
+                                    echo "Will try to downgrade Cypress version instead"
+                                }
+                                
+                                # Pokus o linkovanie novej verzie
+                                brew unlink node 2>/dev/null || true
+                                brew link node@20 2>/dev/null || true
+                                
+                                # Overenie po pokuse o aktualizáciu
+                                NEW_NODE_VERSION=$(node --version | sed 's/v//g' | cut -d. -f1)
+                                echo "Node.js version after update attempt: $NEW_NODE_VERSION"
+                            else
+                                echo "Homebrew not available, will use workarounds"
+                            fi
+                        else
+                            echo "Node.js version is compatible"
+                        fi
+                        
+                        # Vyčisti npm cache
                         npm cache clean --force || true
+                    '''
+                }
+            }
+        }
+        
+        stage('Fix Package Dependencies') {
+            steps {
+                script {
+                    sh '''
+                        # Nastavenie environment
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                        export NPM_CONFIG_CACHE="${WORKSPACE}/.npm-cache"
+                        
+                        NODE_VERSION=$(node --version | sed 's/v//g' | cut -d. -f1)
+                        echo "Node.js major version: $NODE_VERSION"
+                        
+                        # Ak je Node.js < 20, upravíme package.json pre kompatibilitu
+                        if [ "$NODE_VERSION" -lt "20" ]; then
+                            echo "Downgrading Cypress version for Node.js compatibility..."
+                            
+                            # Backup pôvodného package.json
+                            cp package.json package.json.backup
+                            
+                            # Upravenie Cypress verzie pre Node 18 kompatibilitu
+                            sed -i.bak 's/"cypress": "\\^15\\.3\\.0"/"cypress": "^13.6.0"/g' package.json || {
+                                echo "Failed to modify package.json, using manual override"
+                                npm install cypress@13.6.0 --save-dev --cache "${NPM_CONFIG_CACHE}" || true
+                            }
+                            
+                            echo "Modified package.json for Node.js $NODE_VERSION compatibility"
+                            grep cypress package.json || echo "Cypress line not found in package.json"
+                        fi
                     '''
                 }
             }
@@ -70,40 +127,35 @@ pipeline {
                 script {
                     echo 'Installing dependencies...'
                     sh '''
-                        # Nastavenie PATH a environment
+                        # Nastavenie environment
                         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
                         export NPM_CONFIG_CACHE="${WORKSPACE}/.npm-cache"
-                        export NPM_CONFIG_PREFIX="${WORKSPACE}/.npm-global"
                         
                         echo "Using NPM version: $(npm --version)"
                         echo "NPM cache: $NPM_CONFIG_CACHE"
-                        echo "NPM prefix: $NPM_CONFIG_PREFIX"
                         
-                        # Alternatívne spôsoby inštalácie
+                        # Odstránenie yarn.lock ak spôsobuje problémy
                         if [ -f "yarn.lock" ]; then
-                            echo "Found yarn.lock, trying yarn..."
-                            if command -v yarn &> /dev/null; then
-                                yarn install --cache-folder "${WORKSPACE}/.yarn-cache" || {
-                                    echo "Yarn failed, falling back to npm"
-                                    npm install --cache "${NPM_CONFIG_CACHE}" --prefix "${NPM_CONFIG_PREFIX}"
-                                }
-                            else
-                                echo "Yarn not available, using npm"
-                                npm install --cache "${NPM_CONFIG_CACHE}" --no-optional
-                            fi
-                        elif [ -f "package-lock.json" ]; then
-                            echo "Found package-lock.json, using npm ci"
+                            echo "Removing yarn.lock to avoid version conflicts"
+                            rm -f yarn.lock
+                        fi
+                        
+                        # NPM inštalácia v workspace directory
+                        if [ -f "package-lock.json" ]; then
+                            echo "Using npm ci with existing lockfile"
                             npm ci --cache "${NPM_CONFIG_CACHE}" --no-optional || {
                                 echo "npm ci failed, trying npm install"
                                 rm -f package-lock.json
-                                npm install --cache "${NPM_CONFIG_CACHE}" --no-optional
+                                npm install --cache "${NPM_CONFIG_CACHE}" --no-optional --legacy-peer-deps
                             }
                         else
                             echo "Using npm install"
-                            npm install --cache "${NPM_CONFIG_CACHE}" --no-optional
+                            npm install --cache "${NPM_CONFIG_CACHE}" --no-optional --legacy-peer-deps
                         fi
                         
                         echo "Dependencies installed successfully"
+                        echo "Installed packages:"
+                        npm list --depth=0 || true
                     '''
                 }
             }
@@ -114,7 +166,6 @@ pipeline {
                 sh '''
                     # Nastavenie environment
                     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-                    export NPM_CONFIG_CACHE="${WORKSPACE}/.npm-cache"
                     export CYPRESS_CACHE_FOLDER="${WORKSPACE}/.cache/cypress"
                     
                     echo "Verifying Cypress installation..."
@@ -122,7 +173,7 @@ pipeline {
                     # Cypress verifikácia
                     npx cypress verify || {
                         echo "Cypress verify failed, trying to install..."
-                        npx cypress install || echo "Cypress install failed"
+                        npx cypress install --force || echo "Cypress install failed"
                         npx cypress verify || echo "Cypress verification still failing"
                     }
                     
@@ -145,7 +196,6 @@ pipeline {
                     sh """
                         # Nastavenie environment
                         export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
-                        export NPM_CONFIG_CACHE="\${WORKSPACE}/.npm-cache"
                         export CYPRESS_CACHE_FOLDER="\${WORKSPACE}/.cache/cypress"
                         
                         # Vytvor potrebné adresáre
@@ -206,7 +256,6 @@ pipeline {
                     sh '''
                         # Nastavenie environment
                         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-                        export NPM_CONFIG_CACHE="${WORKSPACE}/.npm-cache"
                         
                         echo "Generating Allure report..."
                         
