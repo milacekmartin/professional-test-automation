@@ -7,6 +7,10 @@
             "password": "secret_sauce"
         },
 
-        "api": "https://reqres.in"
+        "api": {
+            "url": "https://reqres.in",
+
+            "apiKey": "reqres-free-v1"
+        }
     }
 }
