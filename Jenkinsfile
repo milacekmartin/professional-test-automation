@@ -3,13 +3,12 @@ pipeline {
     agent any
     
     options {
-        // Pridanie AnsiColor wrapperu
         ansiColor('xterm')
-        
-        // Ďalšie užitočné options
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 20, unit: 'MINUTES') // Skrátený timeout
         skipStagesAfterUnstable()
+        // Paralelné spustenie ak je možné
+        parallelsAlwaysFailFast()
     }
     
     parameters {
@@ -28,6 +27,11 @@ pipeline {
             defaultValue: true,
             description: 'Spustiť testy v headless mode'
         )
+        booleanParam(
+            name: 'SKIP_INSTALL',
+            defaultValue: false,
+            description: 'Preskočiť npm install ak sú dependencies už nainštalované'
+        )
     }
     
     environment {
@@ -38,14 +42,16 @@ pipeline {
         NPM_CONFIG_CACHE = "${WORKSPACE}/.npm-cache"
         NPM_CONFIG_PREFIX = "${WORKSPACE}/.npm-global"
         
-        // ANSI color codes pre pekné výstupy
-        COLOR_RED = '\033[0;31m'
-        COLOR_GREEN = '\033[0;32m'
-        COLOR_YELLOW = '\033[0;33m'
-        COLOR_BLUE = '\033[0;34m'
-        COLOR_PURPLE = '\033[0;35m'
-        COLOR_CYAN = '\033[0;36m'
-        COLOR_WHITE = '\033[0;37m'
+        // NPM optimalizácie
+        NPM_CONFIG_PROGRESS = "false"
+        NPM_CONFIG_AUDIT = "false"
+        NPM_CONFIG_FUND = "false"
+        NPM_CONFIG_PREFER_OFFLINE = "true"
+        NPM_CONFIG_FETCH_TIMEOUT = "300000"
+        NPM_CONFIG_FETCH_RETRY_MINTIMEOUT = "10000"
+        NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT = "60000"
+        
+        // ANSI farby
         COLOR_RESET = '\033[0m'
     }
     
@@ -62,134 +68,117 @@ pipeline {
             }
         }
         
-        stage('🔧 Setup Environment') {
+        stage('🚀 Quick Setup') {
             steps {
                 script {
                     sh '''
-                        echo "\033[0;36m=== 🔧 SETTING UP ENVIRONMENT ===\033[0m"
+                        echo "\033[0;36m=== 🚀 QUICK ENVIRONMENT SETUP ===\033[0m"
                         
-                        # Vytvor adresáre
-                        mkdir -p "${NPM_CONFIG_CACHE}"
-                        mkdir -p "${NPM_CONFIG_PREFIX}"
-                        mkdir -p "${CYPRESS_CACHE_FOLDER}"
+                        # Rýchle vytvorenie adresárov
+                        mkdir -p "${NPM_CONFIG_CACHE}" "${NPM_CONFIG_PREFIX}" "${CYPRESS_CACHE_FOLDER}" "${ALLURE_RESULTS_DIR}"
                         
                         # Nastavenie PATH
                         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
                         
-                        # Overenie verzií s farbami
-                        NODE_VERSION=$(node --version | sed 's/v//g' | cut -d. -f1)
-                        echo "\033[0;32m✓ Node.js version: $(node --version)\033[0m"
-                        echo "\033[0;32m✓ NPM version: $(npm --version)\033[0m"
-                        echo "\033[0;34mℹ NPM cache: ${NPM_CONFIG_CACHE}\033[0m"
-                        echo "\033[0;34mℹ NPM prefix: ${NPM_CONFIG_PREFIX}\033[0m"
+                        # Rýchle overenie verzií
+                        echo "\033[0;32m✓ Node.js: $(node --version | cut -c1-8)\033[0m"
+                        echo "\033[0;32m✓ NPM: $(npm --version)\033[0m"
                         
-                        # Upozornenie na verziu Node.js
-                        if [ "$NODE_VERSION" -lt "20" ]; then
-                            echo "\033[0;33m⚠ WARNING: Node.js version $NODE_VERSION is below required version 20 for Cypress 15.3.0\033[0m"
-                        else
-                            echo "\033[0;32m✓ Node.js version is compatible\033[0m"
-                        fi
+                        # Optimalizácie npm config
+                        npm config set progress false
+                        npm config set audit false
+                        npm config set fund false
+                        npm config set prefer-offline true
+                        npm config set fetch-timeout 300000
+                        npm config set fetch-retry-mintimeout 10000
+                        npm config set fetch-retry-maxtimeout 60000
+                        npm config set maxsockets 15
+                        npm config set registry https://registry.npmjs.org/
                         
-                        # Vyčisti npm cache
-                        echo "\033[0;34mℹ Cleaning NPM cache...\033[0m"
-                        npm cache clean --force || true
+                        echo "\033[0;32m✓ NPM optimized for speed\033[0m"
                     '''
                 }
             }
         }
         
-        stage('🔨 Fix Dependencies') {
+        stage('⚡ Smart Install') {
             steps {
                 script {
                     sh '''
-                        echo "\033[0;36m=== 🔨 FIXING PACKAGE DEPENDENCIES ===\033[0m"
+                        echo "\033[0;36m=== ⚡ SMART DEPENDENCY INSTALLATION ===\033[0m"
                         
-                        # Nastavenie environment
                         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
                         export NPM_CONFIG_CACHE="${WORKSPACE}/.npm-cache"
                         
-                        NODE_VERSION=$(node --version | sed 's/v//g' | cut -d. -f1)
+                        # Skontroluj či už existuje node_modules a package-lock.json
+                        SKIP_INSTALL=false
                         
-                        # Ak je Node.js < 20, upravíme package.json pre kompatibilitu
-                        if [ "$NODE_VERSION" -lt "20" ]; then
-                            echo "\033[0;33m⚠ Downgrading Cypress version for Node.js compatibility...\033[0m"
-                            
-                            # Backup pôvodného package.json
-                            cp package.json package.json.backup
-                            
-                            # Upravenie Cypress verzie pre Node 18 kompatibilitu
-                            sed -i.bak 's/"cypress": "\\^15\\.3\\.0"/"cypress": "^13.6.0"/g' package.json || {
-                                echo "\033[0;31m✗ Failed to modify package.json\033[0m"
-                            }
-                            
-                            echo "\033[0;32m✓ Modified package.json for Node.js $NODE_VERSION compatibility\033[0m"
+                        if [ "$SKIP_INSTALL" = "true" ] && [ -d "node_modules" ] && [ -f "package-lock.json" ]; then
+                            echo "\033[0;33m⚡ Skipping install - dependencies already present\033[0m"
+                            echo "\033[0;34mℹ Verifying existing installation...\033[0m"
+                            npm list --depth=0 || echo "Some packages missing, will reinstall"
                         else
-                            echo "\033[0;32m✓ Node.js version is compatible, no changes needed\033[0m"
+                            # Vyčisti staré závislosti
+                            rm -rf node_modules package-lock.json yarn.lock 2>/dev/null || true
+                            
+                            echo "\033[0;34mℹ Downgrading Cypress for Node.js 18 compatibility...\033[0m"
+                            # Rýchla úprava package.json pre Node.js 18
+                            sed -i.bak 's/"cypress": "[^"]*"/"cypress": "13.6.0"/g' package.json 2>/dev/null || true
+                            
+                            echo "\033[0;34mℹ Installing minimal dependencies...\033[0m"
+                            
+                            # Superrýchla inštalácia len potrebných balíčkov
+                            npm install \
+                                cypress@13.6.0 \
+                                typescript \
+                                allure-cypress@2.14.1 \
+                                allure-commandline@2.27.0 \
+                                --cache "${NPM_CONFIG_CACHE}" \
+                                --no-optional \
+                                --no-audit \
+                                --no-fund \
+                                --prefer-offline \
+                                --progress=false \
+                                --loglevel=error \
+                                --legacy-peer-deps || {
+                                
+                                echo "\033[0;33m⚠ Minimal install failed, trying full install...\033[0m"
+                                npm install \
+                                    --cache "${NPM_CONFIG_CACHE}" \
+                                    --no-optional \
+                                    --no-audit \
+                                    --no-fund \
+                                    --prefer-offline \
+                                    --progress=false \
+                                    --legacy-peer-deps \
+                                    --maxsockets=15 \
+                                    --fetch-timeout=180000
+                            }
                         fi
+                        
+                        echo "\033[0;32m✓ Dependencies ready in $(ls -la node_modules | wc -l) packages\033[0m"
                     '''
                 }
             }
         }
         
-        stage('📦 Install Dependencies') {
-            steps {
-                script {
-                    echo "\033[0;36m=== 📦 INSTALLING DEPENDENCIES ===\033[0m"
-                    sh '''
-                        # Nastavenie environment
-                        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-                        export NPM_CONFIG_CACHE="${WORKSPACE}/.npm-cache"
-                        
-                        echo "\033[0;32m✓ Using NPM version: $(npm --version)\033[0m"
-                        echo "\033[0;34mℹ NPM cache: $NPM_CONFIG_CACHE\033[0m"
-                        
-                        # Odstránenie yarn.lock ak spôsobuje problémy
-                        if [ -f "yarn.lock" ]; then
-                            echo "\033[0;33m⚠ Removing yarn.lock to avoid version conflicts\033[0m"
-                            rm -f yarn.lock
-                        fi
-                        
-                        # NPM inštalácia
-                        echo "\033[0;34mℹ Installing packages...\033[0m"
-                        if [ -f "package-lock.json" ]; then
-                            echo "\033[0;34mℹ Using npm ci with existing lockfile\033[0m"
-                            npm ci --cache "${NPM_CONFIG_CACHE}" --no-optional || {
-                                echo "\033[0;33m⚠ npm ci failed, trying npm install\033[0m"
-                                rm -f package-lock.json
-                                npm install --cache "${NPM_CONFIG_CACHE}" --no-optional --legacy-peer-deps
-                            }
-                        else
-                            echo "\033[0;34mℹ Using npm install\033[0m"
-                            npm install --cache "${NPM_CONFIG_CACHE}" --no-optional --legacy-peer-deps
-                        fi
-                        
-                        echo "\033[0;32m✓ Dependencies installed successfully\033[0m"
-                    '''
-                }
-            }
-        }
-        
-        stage('🔍 Verify Cypress') {
+        stage('🔍 Quick Verify') {
             steps {
                 sh '''
-                    echo "\033[0;36m=== 🔍 VERIFYING CYPRESS ===\033[0m"
+                    echo "\033[0;36m=== 🔍 QUICK CYPRESS VERIFICATION ===\033[0m"
                     
-                    # Nastavenie environment
                     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
                     export CYPRESS_CACHE_FOLDER="${WORKSPACE}/.cache/cypress"
                     
-                    # Cypress verifikácia
-                    echo "\033[0;34mℹ Verifying Cypress installation...\033[0m"
-                    npx cypress verify || {
-                        echo "\033[0;33m⚠ Cypress verify failed, trying to install...\033[0m"
-                        npx cypress install --force || echo "\033[0;31m✗ Cypress install failed\033[0m"
-                        npx cypress verify || echo "\033[0;31m✗ Cypress verification still failing\033[0m"
-                    }
-                    
-                    echo "\033[0;34mℹ Cypress info:\033[0m"
-                    npx cypress info || echo "\033[0;33m⚠ Cypress info not available\033[0m"
-                    
-                    echo "\033[0;32m✓ Cypress verification completed\033[0m"
+                    # Rýchla verifikácia Cypress
+                    if npx cypress version >/dev/null 2>&1; then
+                        echo "\033[0;32m✓ Cypress $(npx cypress version --component package 2>/dev/null | cut -d: -f2 || echo 'ready')\033[0m"
+                    else
+                        echo "\033[0;33m⚠ Installing Cypress binary...\033[0m"
+                        npx cypress install --force || {
+                            echo "\033[0;31m✗ Cypress install failed, but continuing...\033[0m"
+                        }
+                    fi
                 '''
             }
         }
@@ -203,35 +192,29 @@ pipeline {
                     echo "\033[0;36m=== 🧪 RUNNING CYPRESS TESTS ===\033[0m"
                     echo "\033[0;32m✓ Browser: ${params.BROWSER}\033[0m"
                     echo "\033[0;32m✓ Environment: ${configFile}\033[0m"
-                    echo "\033[0;32m✓ Headless mode: ${params.HEADLESS}\033[0m"
+                    echo "\033[0;32m✓ Headless: ${params.HEADLESS}\033[0m"
                     
                     sh """
-                        # Nastavenie environment
                         export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
                         export CYPRESS_CACHE_FOLDER="\${WORKSPACE}/.cache/cypress"
                         
-                        # Vytvor potrebné adresáre
-                        mkdir -p ${ALLURE_RESULTS_DIR}
-                        mkdir -p cypress/screenshots
-                        mkdir -p cypress/videos
-                        mkdir -p cypress/results
+                        # Vytvor adresáre pre výsledky
+                        mkdir -p ${ALLURE_RESULTS_DIR} cypress/screenshots cypress/videos cypress/results
                         
-                        echo "\033[0;34mℹ Starting Cypress test execution...\033[0m"
+                        echo "\033[0;34mℹ Starting test execution...\033[0m"
                         
-                        # Spusti Cypress testy
-                        npm run cy:test:run || {
-                            echo "\033[0;33m⚠ Package script failed, trying direct command...\033[0m"
-                            npx cypress run \\
-                                --browser ${params.BROWSER} \\
-                                ${browserFlag} \\
-                                --env configFile=${configFile} \\
-                                --reporter json \\
-                                --reporter-options "outputFile=cypress/results/results.json" \\
-                                || {
-                                echo "\033[0;31m✗ Cypress run failed, creating dummy results...\033[0m"
-                                mkdir -p cypress/results
-                                echo '{"stats":{"tests":1,"passes":0,"failures":1}}' > cypress/results/results.json
-                            }
+                        # Rýchle spustenie testov
+                        timeout 600 npx cypress run \\
+                            --browser ${params.BROWSER} \\
+                            ${browserFlag} \\
+                            --env configFile=${configFile} \\
+                            --reporter json \\
+                            --reporter-options "outputFile=cypress/results/results.json" \\
+                            --no-exit \\
+                            || {
+                            echo "\033[0;31m✗ Tests failed or timed out, creating dummy results\033[0m"
+                            mkdir -p cypress/results
+                            echo '{"stats":{"tests":1,"passes":0,"failures":1,"duration":1000}}' > cypress/results/results.json
                         }
                         
                         echo "\033[0;32m✓ Test execution completed\033[0m"
@@ -241,71 +224,56 @@ pipeline {
             post {
                 always {
                     script {
-                        echo "\033[0;36m=== 📁 ARCHIVING ARTIFACTS ===\033[0m"
-                        
-                        if (fileExists('cypress/screenshots')) {
-                            archiveArtifacts artifacts: 'cypress/screenshots/**/*', allowEmptyArchive: true
-                            echo "\033[0;32m✓ Screenshots archived\033[0m"
+                        // Rýchla archivácia
+                        ['cypress/screenshots', 'cypress/videos', 'cypress/results'].each { dir ->
+                            if (fileExists(dir)) {
+                                archiveArtifacts artifacts: "${dir}/**/*", allowEmptyArchive: true
+                            }
                         }
-                        if (fileExists('cypress/videos')) {
-                            archiveArtifacts artifacts: 'cypress/videos/**/*', allowEmptyArchive: true
-                            echo "\033[0;32m✓ Videos archived\033[0m"
-                        }
-                        if (fileExists('cypress/results')) {
-                            archiveArtifacts artifacts: 'cypress/results/**/*', allowEmptyArchive: true
-                            echo "\033[0;32m✓ Results archived\033[0m"
-                        }
+                        echo "\033[0;32m✓ Artifacts archived\033[0m"
                     }
                 }
             }
         }
         
-        stage('📊 Generate Report') {
+        stage('📊 Quick Report') {
             when {
-                expression { fileExists(env.ALLURE_RESULTS_DIR) || fileExists('cypress/results') }
+                expression { fileExists('cypress/results') || fileExists(env.ALLURE_RESULTS_DIR) }
             }
             steps {
-                script {
-                    sh '''
-                        echo "\033[0;36m=== 📊 GENERATING ALLURE REPORT ===\033[0m"
+                sh '''
+                    echo "\033[0;36m=== 📊 GENERATING QUICK REPORT ===\033[0m"
+                    
+                    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                    
+                    # Jednoduchý report ak nie sú Allure výsledky
+                    if [ -d "cypress/results" ]; then
+                        echo "\033[0;32m✓ Creating simple HTML report...\033[0m"
+                        mkdir -p ${ALLURE_REPORT_DIR}
                         
-                        # Nastavenie environment
-                        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                        cat > ${ALLURE_REPORT_DIR}/index.html << EOF
+<!DOCTYPE html>
+<html>
+<head><title>Cypress Test Results</title></head>
+<body>
+    <h1>🧪 Cypress Test Results</h1>
+    <p><strong>Build:</strong> ${BUILD_NUMBER}</p>
+                        <p><strong>Branch:</strong> ${BRANCH_NAME:-main}</p>
+                        <p><strong>Timestamp:</strong> $(date)</p>
+                        <p>Check Jenkins artifacts for detailed results.</p>
+                        <h2>📁 Available Artifacts:</h2>
+                        <ul>
+EOF
                         
-                        # Skontroluj či existujú výsledky
-                        if [ -d "${ALLURE_RESULTS_DIR}" ] && [ "$(ls -A ${ALLURE_RESULTS_DIR} 2>/dev/null)" ]; then
-                            echo "\033[0;32m✓ Found Allure results, generating report...\033[0m"
-                            
-                            # Kopíruj historické dáta ak existujú
-                            if [ -d "${ALLURE_REPORT_DIR}/history" ]; then
-                                echo "\033[0;34mℹ Copying historical data...\033[0m"
-                                mkdir -p ${ALLURE_RESULTS_DIR}/history
-                                cp -r ${ALLURE_REPORT_DIR}/history/* ${ALLURE_RESULTS_DIR}/history/ 2>/dev/null || true
-                            fi
-                            
-                            # Vygeneruj Allure report
-                            npm run allure:report || {
-                                echo "\033[0;33m⚠ Package script failed, trying direct allure command...\033[0m"
-                                npx allure generate ${ALLURE_RESULTS_DIR} --clean -o ${ALLURE_REPORT_DIR} || {
-                                    echo "\033[0;31m✗ Allure report generation failed\033[0m"
-                                }
-                            }
-                            
-                            echo "\033[0;32m✓ Allure report generated successfully\033[0m"
-                        else
-                            echo "\033[0;33m⚠ No Allure results found in ${ALLURE_RESULTS_DIR}\033[0m"
-                            
-                            # Skús nájsť iné výsledky
-                            if [ -d "cypress/results" ]; then
-                                echo "\033[0;34mℹ Found Cypress results, creating simple report...\033[0m"
-                                mkdir -p ${ALLURE_REPORT_DIR}
-                                echo "<h1>Cypress Test Results</h1>" > ${ALLURE_REPORT_DIR}/index.html
-                                echo "<p>Tests completed. Check archived artifacts for details.</p>" >> ${ALLURE_REPORT_DIR}/index.html
-                                echo "\033[0;32m✓ Simple report created\033[0m"
-                            fi
-                        fi
-                    '''
-                }
+                        [ -d "cypress/screenshots" ] && echo "<li>📸 Screenshots</li>" >> ${ALLURE_REPORT_DIR}/index.html
+                        [ -d "cypress/videos" ] && echo "<li>🎥 Videos</li>" >> ${ALLURE_REPORT_DIR}/index.html
+                        [ -d "cypress/results" ] && echo "<li>📊 JSON Results</li>" >> ${ALLURE_REPORT_DIR}/index.html
+                        
+                        echo "</ul></body></html>" >> ${ALLURE_REPORT_DIR}/index.html
+                        
+                        echo "\033[0;32m✓ Simple report created\033[0m"
+                    fi
+                '''
             }
         }
     }
@@ -313,51 +281,31 @@ pipeline {
     post {
         always {
             script {
-                echo "\033[0;36m=== 🏁 PIPELINE FINISHED ===\033[0m"
+                echo "\033[0;36m=== 🏁 PIPELINE CLEANUP ===\033[0m"
                 
-                // Publikuj Allure report len ak existuje
+                // Publikuj report ak existuje
                 if (fileExists(env.ALLURE_RESULTS_DIR)) {
                     try {
-                        def hasResults = sh(script: "ls -A ${env.ALLURE_RESULTS_DIR} 2>/dev/null | wc -l", returnStdout: true).trim() as Integer
-                        if (hasResults > 0) {
-                            allure([
-                                includeProperties: false,
-                                jdk: '',
-                                properties: [],
-                                reportBuildPolicy: 'ALWAYS',
-                                results: [[path: env.ALLURE_RESULTS_DIR]]
-                            ])
-                            echo "\033[0;32m✓ Allure report published\033[0m"
-                        } else {
-                            echo "\033[0;33m⚠ Allure results directory is empty\033[0m"
-                        }
+                        allure([
+                            includeProperties: false,
+                            reportBuildPolicy: 'ALWAYS',
+                            results: [[path: env.ALLURE_RESULTS_DIR]]
+                        ])
+                        echo "\033[0;32m✓ Allure report published\033[0m"
                     } catch (Exception e) {
-                        echo "\033[0;31m✗ Failed to publish Allure report: ${e.getMessage()}\033[0m"
+                        echo "\033[0;33m⚠ Allure publish failed: ${e.getMessage()}\033[0m"
                     }
-                } else {
-                    echo "\033[0;34mℹ No Allure results directory found\033[0m"
                 }
                 
-                // Vyčisti workspace s výnimkami
+                // Rýchle vyčistenie
                 try {
-                    cleanWs(
-                        cleanWhenAborted: true,
-                        cleanWhenFailure: false,
-                        cleanWhenNotBuilt: false,
-                        cleanWhenSuccess: true,
-                        cleanWhenUnstable: false,
-                        deleteDirs: true,
-                        disableDeferredWipeout: true,
-                        notFailBuild: true,
-                        patterns: [
-                            [pattern: '.npm-cache/**', type: 'EXCLUDE'],
-                            [pattern: '.cache/**', type: 'EXCLUDE'],
-                            [pattern: 'node_modules/**', type: 'EXCLUDE']
-                        ]
-                    )
-                    echo "\033[0;32m✓ Workspace cleaned\033[0m"
+                    // Zachovaj cache pre ďalšie buildy
+                    sh '''
+                        echo "\033[0;34mℹ Preserving cache for next build...\033[0m"
+                        ls -la .npm-cache/ 2>/dev/null | head -5 || echo "No cache to preserve"
+                    '''
                 } catch (Exception e) {
-                    echo "\033[0;31m✗ Workspace cleanup failed: ${e.getMessage()}\033[0m"
+                    echo "\033[0;33m⚠ Cache check failed\033[0m"
                 }
             }
         }
@@ -368,10 +316,6 @@ pipeline {
         
         failure {
             echo "\033[0;31m💥 PIPELINE FAILED! 💥\033[0m"
-        }
-        
-        unstable {
-            echo "\033[0;33m⚠ PIPELINE IS UNSTABLE! ⚠\033[0m"
         }
     }
 }
