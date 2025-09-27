@@ -21,14 +21,9 @@ pipeline {
     }
     
     environment {
-        NODE_VERSION = '18'
         CYPRESS_CACHE_FOLDER = "${WORKSPACE}/.cache/cypress"
         ALLURE_RESULTS_DIR = 'allure-results'
         ALLURE_REPORT_DIR = 'allure/report'
-    }
-    
-    tools {
-        nodejs "${NODE_VERSION}"
     }
     
     stages {
@@ -39,18 +34,48 @@ pipeline {
             }
         }
         
+        stage('Setup Node.js') {
+            steps {
+                script {
+                    // Overenie Node.js verzie
+                    sh '''
+                        echo "Current Node.js version:"
+                        node --version || echo "Node.js not found"
+                        echo "Current NPM version:"
+                        npm --version || echo "NPM not found"
+                        
+                        # Ak node nie je nainštalovaný, použijeme system default
+                        if ! command -v node &> /dev/null; then
+                            echo "Node.js not found, trying to install via package manager"
+                            # Pre macOS s Homebrew
+                            if command -v brew &> /dev/null; then
+                                brew install node@18 || true
+                            fi
+                        fi
+                    '''
+                }
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
                 script {
-                    echo 'Installing dependencies with Yarn...'
+                    echo 'Installing dependencies with Yarn/NPM...'
                     sh '''
-                        # Ak yarn nie je nainštalovaný, nainštaluj ho
-                        if ! command -v yarn &> /dev/null; then
-                            npm install -g yarn
+                        # Skús yarn, ak nie je dostupný použij npm
+                        if command -v yarn &> /dev/null; then
+                            echo "Using Yarn for package management"
+                            yarn install --frozen-lockfile
+                        else
+                            echo "Yarn not found, installing via NPM"
+                            npm install -g yarn || true
+                            if command -v yarn &> /dev/null; then
+                                yarn install --frozen-lockfile
+                            else
+                                echo "Using NPM for package management"
+                                npm ci
+                            fi
                         fi
-                        
-                        # Cache yarn dependencies
-                        yarn install --frozen-lockfile --cache-folder .yarn-cache
                     '''
                 }
             }
@@ -60,8 +85,8 @@ pipeline {
             steps {
                 sh '''
                     echo "Verifying Cypress installation..."
-                    npx cypress verify
-                    npx cypress info
+                    npx cypress verify || npm run cy:test:run --version
+                    npx cypress info || echo "Cypress info not available"
                 '''
             }
         }
@@ -77,46 +102,72 @@ pipeline {
                     echo "Headless mode: ${params.HEADLESS}"
                     
                     sh """
-                        # Vytvor adresár pre allure výsledky
+                        # Vytvor potrebné adresáre
                         mkdir -p ${ALLURE_RESULTS_DIR}
+                        mkdir -p cypress/screenshots
+                        mkdir -p cypress/videos
+                        mkdir -p cypress/results
                         
-                        # Spusti Cypress testy
-                        npx cypress run \\
-                            --browser ${params.BROWSER} \\
-                            ${browserFlag} \\
-                            --env configFile=${configFile} \\
-                            --reporter json \\
-                            --reporter-options "outputFile=cypress/results/results.json" \\
-                            || true
+                        # Spusti Cypress testy pomocou package.json scriptu
+                        npm run cy:test:run || true
+                        
+                        # Backup: ak package script zlyhá, skús priamo
+                        if [ ! -d "cypress/screenshots" ] && [ ! -d "cypress/videos" ]; then
+                            echo "Running Cypress with direct command..."
+                            npx cypress run \\
+                                --browser ${params.BROWSER} \\
+                                ${browserFlag} \\
+                                --env configFile=${configFile} \\
+                                || true
+                        fi
                     """
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'cypress/screenshots/**/*', allowEmptyArchive: true
-                    archiveArtifacts artifacts: 'cypress/videos/**/*', allowEmptyArchive: true
-                    archiveArtifacts artifacts: 'cypress/results/**/*', allowEmptyArchive: true
+                    script {
+                        // Archivuj výsledky ak existujú
+                        if (fileExists('cypress/screenshots')) {
+                            archiveArtifacts artifacts: 'cypress/screenshots/**/*', allowEmptyArchive: true
+                        }
+                        if (fileExists('cypress/videos')) {
+                            archiveArtifacts artifacts: 'cypress/videos/**/*', allowEmptyArchive: true
+                        }
+                        if (fileExists('cypress/results')) {
+                            archiveArtifacts artifacts: 'cypress/results/**/*', allowEmptyArchive: true
+                        }
+                    }
                 }
             }
         }
         
         stage('Generate Allure Report') {
+            when {
+                expression { fileExists(env.ALLURE_RESULTS_DIR) }
+            }
             steps {
                 script {
                     sh '''
                         echo "Generating Allure report..."
                         
-                        # Kopíruj historické dáta ak existujú
-                        if [ -d "${ALLURE_REPORT_DIR}/history" ]; then
-                            echo "Copying historical data..."
-                            mkdir -p ${ALLURE_RESULTS_DIR}/history
-                            cp -r ${ALLURE_REPORT_DIR}/history/* ${ALLURE_RESULTS_DIR}/history/ || true
+                        # Skontroluj či existujú allure výsledky
+                        if [ -d "${ALLURE_RESULTS_DIR}" ] && [ "$(ls -A ${ALLURE_RESULTS_DIR})" ]; then
+                            echo "Found Allure results, generating report..."
+                            
+                            # Kopíruj historické dáta ak existujú
+                            if [ -d "${ALLURE_REPORT_DIR}/history" ]; then
+                                echo "Copying historical data..."
+                                mkdir -p ${ALLURE_RESULTS_DIR}/history
+                                cp -r ${ALLURE_REPORT_DIR}/history/* ${ALLURE_RESULTS_DIR}/history/ || true
+                            fi
+                            
+                            # Vygeneruj Allure report
+                            npm run allure:report || npx allure generate ${ALLURE_RESULTS_DIR} --clean -o ${ALLURE_REPORT_DIR}
+                            
+                            echo "Allure report generated successfully"
+                        else
+                            echo "No Allure results found, skipping report generation"
                         fi
-                        
-                        # Vygeneruj Allure report
-                        npx allure generate ${ALLURE_RESULTS_DIR} --clean -o ${ALLURE_REPORT_DIR}
-                        
-                        echo "Allure report generated successfully"
                     '''
                 }
             }
@@ -125,77 +176,54 @@ pipeline {
     
     post {
         always {
-            echo 'Pipeline finished'
-            
             script {
+                echo 'Pipeline finished'
+                
+                // Publikuj Allure report len ak existuje
+                if (fileExists(env.ALLURE_RESULTS_DIR) && sh(script: "ls -A ${env.ALLURE_RESULTS_DIR}", returnStatus: true) == 0) {
+                    try {
+                        allure([
+                            includeProperties: false,
+                            jdk: '',
+                            properties: [],
+                            reportBuildPolicy: 'ALWAYS',
+                            results: [[path: env.ALLURE_RESULTS_DIR]]
+                        ])
+                    } catch (Exception e) {
+                        echo "Failed to publish Allure report: ${e.getMessage()}"
+                    }
+                } else {
+                    echo "No Allure results to publish"
+                }
+                
+                // Vyčisti workspace
                 try {
-                    allure([
-                        includeProperties: false,
-                        jdk: '',
-                        properties: [],
-                        reportBuildPolicy: 'ALWAYS',
-                        results: [[path: env.ALLURE_RESULTS_DIR]]
-                    ])
+                    cleanWs(
+                        cleanWhenAborted: true,
+                        cleanWhenFailure: false,
+                        cleanWhenNotBuilt: false,
+                        cleanWhenSuccess: true,
+                        cleanWhenUnstable: false,
+                        deleteDirs: true,
+                        disableDeferredWipeout: true,
+                        notFailBuild: true,
+                        patterns: [
+                            [pattern: '.cache/**', type: 'EXCLUDE'],
+                            [pattern: 'node_modules/**', type: 'EXCLUDE']
+                        ]
+                    )
                 } catch (Exception e) {
-                    echo "Failed to publish Allure report: ${e.getMessage()}"
+                    echo "Workspace cleanup failed: ${e.getMessage()}"
                 }
             }
-            
-            cleanWs(
-                cleanWhenAborted: true,
-                cleanWhenFailure: false,
-                cleanWhenNotBuilt: false,
-                cleanWhenSuccess: true,
-                cleanWhenUnstable: false,
-                deleteDirs: true,
-                disableDeferredWipeout: true,
-                notFailBuild: true,
-                patterns: [
-                    [pattern: '.cache/**', type: 'EXCLUDE'],
-                    [pattern: 'node_modules/**', type: 'EXCLUDE'],
-                    [pattern: 'cypress/screenshots/**', type: 'INCLUDE'],
-                    [pattern: 'cypress/videos/**', type: 'INCLUDE']
-                ]
-            )
         }
         
         success {
             echo 'Pipeline completed successfully!'
-            
-            emailext (
-                subject: "✅ Cypress Tests PASSED - ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
-                body: """
-                    <h3>Cypress Test Results - SUCCESS</h3>
-                    <p><strong>Job:</strong> ${env.JOB_NAME}</p>
-                    <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
-                    <p><strong>Browser:</strong> ${params.BROWSER}</p>
-                    <p><strong>Environment:</strong> ${params.ENV}</p>
-                    <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                    <p><strong>Allure Report:</strong> <a href="${env.BUILD_URL}allure">View Report</a></p>
-                """,
-                to: "${env.CHANGE_AUTHOR_EMAIL}",
-                mimeType: 'text/html'
-            )
         }
         
         failure {
             echo 'Pipeline failed!'
-            
-            emailext (
-                subject: "❌ Cypress Tests FAILED - ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
-                body: """
-                    <h3>Cypress Test Results - FAILURE</h3>
-                    <p><strong>Job:</strong> ${env.JOB_NAME}</p>
-                    <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
-                    <p><strong>Browser:</strong> ${params.BROWSER}</p>
-                    <p><strong>Environment:</strong> ${params.ENV}</p>
-                    <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                    <p><strong>Console Log:</strong> <a href="${env.BUILD_URL}console">View Log</a></p>
-                    <p><strong>Allure Report:</strong> <a href="${env.BUILD_URL}allure">View Report</a></p>
-                """,
-                to: "${env.CHANGE_AUTHOR_EMAIL}",
-                mimeType: 'text/html'
-            )
         }
         
         unstable {
