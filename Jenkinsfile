@@ -24,33 +24,64 @@ pipeline {
         CYPRESS_CACHE_FOLDER = "${WORKSPACE}/.cache/cypress"
         ALLURE_RESULTS_DIR = 'allure-results'
         ALLURE_REPORT_DIR = 'allure/report'
+        PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "Checking out branch: ${env.BRANCH_NAME}"
+                echo "Checking out branch: ${env.BRANCH_NAME ?: 'main'}"
             }
         }
         
-        stage('Setup Node.js') {
+        stage('Install Node.js') {
             steps {
                 script {
-                    // Overenie Node.js verzie
                     sh '''
-                        echo "Current Node.js version:"
-                        node --version || echo "Node.js not found"
-                        echo "Current NPM version:"
-                        npm --version || echo "NPM not found"
+                        echo "=== Installing Node.js ==="
                         
-                        # Ak node nie je nainštalovaný, použijeme system default
-                        if ! command -v node &> /dev/null; then
-                            echo "Node.js not found, trying to install via package manager"
-                            # Pre macOS s Homebrew
+                        # Pridaj možné cesty pre Homebrew
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                        
+                        # Skontroluj či už nie je nainštalovaný
+                        if command -v node &> /dev/null; then
+                            echo "Node.js is already installed:"
+                            node --version
+                            npm --version
+                        else
+                            echo "Installing Node.js via Homebrew..."
+                            
+                            # Skontroluj či je Homebrew dostupný
                             if command -v brew &> /dev/null; then
-                                brew install node@18 || true
+                                echo "Homebrew found, installing Node.js..."
+                                brew install node || {
+                                    echo "Homebrew install failed, trying with sudo..."
+                                    sudo brew install node || {
+                                        echo "Both attempts failed, trying direct download..."
+                                        # Fallback: stiahnuť Node.js priamo
+                                        curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-darwin-x64.tar.gz -o node.tar.gz
+                                        tar -xzf node.tar.gz
+                                        export PATH="$PWD/node-v18.19.0-darwin-x64/bin:$PATH"
+                                        echo "Node.js installed locally"
+                                        node --version
+                                        npm --version
+                                    }
+                                }
+                            else
+                                echo "Homebrew not found, installing it first..."
+                                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
+                                    echo "Homebrew installation failed, using direct Node.js download..."
+                                    curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-darwin-x64.tar.gz -o node.tar.gz
+                                    tar -xzf node.tar.gz
+                                    export PATH="$PWD/node-v18.19.0-darwin-x64/bin:$PATH"
+                                    echo "Node.js installed locally"
+                                }
                             fi
+                            
+                            # Finálne overenie
+                            node --version || echo "Node.js installation may have failed"
+                            npm --version || echo "NPM installation may have failed"
                         fi
                     '''
                 }
@@ -60,22 +91,30 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    echo 'Installing dependencies with Yarn/NPM...'
+                    echo 'Installing dependencies...'
                     sh '''
-                        # Skús yarn, ak nie je dostupný použij npm
-                        if command -v yarn &> /dev/null; then
-                            echo "Using Yarn for package management"
-                            yarn install --frozen-lockfile
-                        else
-                            echo "Yarn not found, installing via NPM"
-                            npm install -g yarn || true
-                            if command -v yarn &> /dev/null; then
-                                yarn install --frozen-lockfile
-                            else
-                                echo "Using NPM for package management"
-                                npm ci
-                            fi
+                        # Nastavenie PATH pre Node.js
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$PWD/node-v18.19.0-darwin-x64/bin:$PATH"
+                        
+                        # Overenie dostupnosti npm
+                        if ! command -v npm &> /dev/null; then
+                            echo "NPM still not found, exiting..."
+                            exit 1
                         fi
+                        
+                        echo "Using NPM version: $(npm --version)"
+                        
+                        # Inštalácia závislostí
+                        if [ -f "package-lock.json" ]; then
+                            echo "Found package-lock.json, using npm ci"
+                            npm ci
+                        else
+                            echo "Using npm install"
+                            npm install
+                        fi
+                        
+                        # Skús nainštalovať yarn globálne
+                        npm install -g yarn || echo "Yarn global install failed, continuing with npm"
                     '''
                 }
             }
@@ -84,8 +123,12 @@ pipeline {
         stage('Verify Cypress') {
             steps {
                 sh '''
+                    # Nastavenie PATH
+                    export PATH="/opt/homebrew/bin:/usr/local/bin:$PWD/node-v18.19.0-darwin-x64/bin:$PATH"
+                    
                     echo "Verifying Cypress installation..."
-                    npx cypress verify || npm run cy:test:run --version
+                    npx cypress verify
+                    echo "Cypress info:"
                     npx cypress info || echo "Cypress info not available"
                 '''
             }
@@ -102,24 +145,25 @@ pipeline {
                     echo "Headless mode: ${params.HEADLESS}"
                     
                     sh """
+                        # Nastavenie PATH
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:\$PWD/node-v18.19.0-darwin-x64/bin:\$PATH"
+                        
                         # Vytvor potrebné adresáre
                         mkdir -p ${ALLURE_RESULTS_DIR}
                         mkdir -p cypress/screenshots
                         mkdir -p cypress/videos
                         mkdir -p cypress/results
                         
-                        # Spusti Cypress testy pomocou package.json scriptu
-                        npm run cy:test:run || true
-                        
-                        # Backup: ak package script zlyhá, skús priamo
-                        if [ ! -d "cypress/screenshots" ] && [ ! -d "cypress/videos" ]; then
-                            echo "Running Cypress with direct command..."
+                        # Spusti Cypress testy
+                        echo "Running Cypress tests..."
+                        npm run cy:test:run || {
+                            echo "Package script failed, trying direct command..."
                             npx cypress run \\
                                 --browser ${params.BROWSER} \\
                                 ${browserFlag} \\
                                 --env configFile=${configFile} \\
                                 || true
-                        fi
+                        }
                     """
                 }
             }
@@ -148,6 +192,9 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        # Nastavenie PATH
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$PWD/node-v18.19.0-darwin-x64/bin:$PATH"
+                        
                         echo "Generating Allure report..."
                         
                         # Skontroluj či existujú allure výsledky
@@ -162,9 +209,11 @@ pipeline {
                             fi
                             
                             # Vygeneruj Allure report
-                            npm run allure:report || npx allure generate ${ALLURE_RESULTS_DIR} --clean -o ${ALLURE_REPORT_DIR}
+                            npm run allure:report || npx allure generate ${ALLURE_RESULTS_DIR} --clean -o ${ALLURE_REPORT_DIR} || {
+                                echo "Allure report generation failed"
+                            }
                             
-                            echo "Allure report generated successfully"
+                            echo "Allure report generation completed"
                         else
                             echo "No Allure results found, skipping report generation"
                         fi
@@ -209,7 +258,8 @@ pipeline {
                         notFailBuild: true,
                         patterns: [
                             [pattern: '.cache/**', type: 'EXCLUDE'],
-                            [pattern: 'node_modules/**', type: 'EXCLUDE']
+                            [pattern: 'node_modules/**', type: 'EXCLUDE'],
+                            [pattern: 'node-v18.19.0-darwin-x64/**', type: 'EXCLUDE']
                         ]
                     )
                 } catch (Exception e) {
