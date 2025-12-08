@@ -12,17 +12,17 @@ pipeline {
         choice(
             name: 'BROWSER',
             choices: ['chromium', 'firefox', 'webkit'],
-            description: 'Browser to run Playwright tests'
+            description: 'Select browser for Playwright execution'
         )
         choice(
             name: 'ENV',
             choices: ['test', 'staging', 'prod'],
-            description: 'Environment for Playwright test run'
+            description: 'Environment for execution'
         )
         booleanParam(
             name: 'HEADLESS',
             defaultValue: true,
-            description: 'Run Playwright in headless mode'
+            description: 'Run browser in headless mode'
         )
     }
 
@@ -30,6 +30,11 @@ pipeline {
         PLAYWRIGHT_DIR = "${WORKSPACE}/playwright"
         ALLURE_RESULTS_DIR = "${WORKSPACE}/playwright/allure-results"
         ALLURE_REPORT_DIR = "${WORKSPACE}/playwright/allure-report"
+
+        # ❗ prevents EACCES permission errors on Mac/Linux
+        PLAYWRIGHT_BROWSERS_PATH = "0"
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true"
+
         PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
 
@@ -46,37 +51,35 @@ pipeline {
             steps {
                 dir("${PLAYWRIGHT_DIR}") {
                     sh '''
-                        echo "\033[0;36m=== INSTALL PLAYWRIGHT DEPENDENCIES ===\033[0m"
+                        echo "\033[0;36m=== INSTALLING PLAYWRIGHT DEPENDENCIES ===\033[0m"
 
                         yarn install --silent
 
-                        echo "\033[0;34mInstalling browsers...\033[0m"
-                        npx playwright install --with-deps
+                        echo "\033[0;34mInstalling Playwright browsers...\033[0m"
+                        # NO --with-deps, it breaks OSX/Jenkins!
+                        npx playwright install chromium firefox webkit
 
-                        echo "\033[0;32mDependencies installed successfully.\033[0m"
+                        echo "\033[0;32mPlaywright dependencies installed.\033[0m"
                     '''
                 }
             }
         }
 
-        stage('Run Playwright Tests') {
+        stage('Run Tests') {
             steps {
                 script {
-                    def headlessFlag = params.HEADLESS ? "--headed=false" : "--headed"
-                    def envName = params.ENV ?: "test"
+                    def headlessFlag = params.HEADLESS ? "" : "--headed"
+                    def envName = params.ENV
 
-                    echo "\033[0;36m=== RUNNING PLAYWRIGHT TESTS ===\033[0m"
-                    echo "\033[0;32mBrowser: ${params.BROWSER} | Env: ${envName} | Headless: ${params.HEADLESS}\033[0m"
+                    echo "\033[0;36m=== STARTING PLAYWRIGHT TESTS ===\033[0m"
+                    echo "\033[0;32mBrowser: ${params.BROWSER} | ENV: ${envName} | Headless: ${params.HEADLESS}\033[0m"
 
                     dir("${PLAYWRIGHT_DIR}") {
                         sh """
                             export ENV=${envName}
 
-                            echo "\033[0;34mStarting Playwright test run...\033[0m"
-
+                            echo "\033[0;34mRunning tests...\033[0m"
                             yarn pw:test --project=${params.BROWSER} ${headlessFlag} || true
-
-                            echo "\033[0;32mPlaywright tests completed.\033[0m"
                         """
                     }
                 }
@@ -85,12 +88,16 @@ pipeline {
             post {
                 always {
                     script {
-                        echo "\033[0;36mArchiving test artifacts...\033[0m"
+                        echo "\033[0;36mArchiving artifacts...\033[0m"
 
-                        def dirs = ["playwright/allure-results", "playwright/test-results"]
-                        dirs.each { dir ->
-                            if (fileExists("${WORKSPACE}/${dir}")) {
-                                archiveArtifacts artifacts: "${dir}/**/*", allowEmptyArchive: true
+                        def outputs = [
+                            "${WORKSPACE}/playwright/allure-results",
+                            "${WORKSPACE}/playwright/test-results"
+                        ]
+
+                        outputs.each { path ->
+                            if (fileExists(path)) {
+                                archiveArtifacts artifacts: "${path}/**/*", allowEmptyArchive: true
                             }
                         }
                     }
@@ -120,33 +127,27 @@ pipeline {
     }
 
     post {
-
         always {
             script {
                 echo "\033[0;36m=== FINALIZING PIPELINE ===\033[0m"
 
-                // Publish Allure report
                 if (fileExists("${ALLURE_RESULTS_DIR}")) {
                     try {
                         allure([
                             includeProperties: false,
-                            jdk: '',
-                            properties: [],
-                            reportBuildPolicy: 'ALWAYS',
-                            results: [[path: "${ALLURE_RESULTS_DIR}"]]
+                            results: [[path: "${ALLURE_RESULTS_DIR}"]],
+                            reportBuildPolicy: 'ALWAYS'
                         ])
                         echo "\033[0;32mAllure report published.\033[0m"
                     } catch (Exception e) {
-                        echo "\033[0;33mFailed to publish Allure report: ${e.getMessage()}\033[0m"
+                        echo "\033[0;31mFailed to publish Allure report: ${e.message}\033[0m"
                     }
-                } else {
-                    echo "\033[0;33mNo Allure results to publish.\033[0m"
                 }
             }
         }
 
         success {
-            echo "\033[0;32mPIPELINE COMPLETED SUCCESSFULLY! 🚀\033[0m"
+            echo "\033[0;32mPIPELINE SUCCESSFUL! 🚀\033[0m"
         }
 
         failure {
