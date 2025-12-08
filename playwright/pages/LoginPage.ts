@@ -1,5 +1,5 @@
-import { Page, expect } from '@playwright/test'
-import { LoginSelectors } from '../selectors/login'
+import { Page } from '@playwright/test'
+import { login } from '../env'
 
 export class LoginPage {
     constructor(private page: Page) {}
@@ -9,10 +9,13 @@ export class LoginPage {
     }
 
     async login(username: string, password: string) {
-        await this.page.getByTestId(LoginSelectors.username).fill(username)
-        await this.page.getByTestId(LoginSelectors.password).fill(password)
-        await this.page.getByTestId(LoginSelectors.loginButton).click()
+        await this.page.getByTestId('username').fill(username)
+        await this.page.getByTestId('password').fill(password)
+        await this.page.getByTestId('login-button').click()
+    }
 
-        await expect(this.page).toHaveURL(/inventory/)
+    async loginAsDefaultUser() {
+        await this.goto()
+        await this.login(login.username, login.password)
     }
 }

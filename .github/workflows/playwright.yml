@@ -1,0 +1,60 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: playwright
+
+    steps:
+      # 1) Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Setup Node
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "yarn"
+          cache-dependency-path: playwright/yarn.lock
+
+      # 3) Install dependencies
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # 4) Install Playwright browsers
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # 5) Run Playwright tests
+      - name: Run Playwright tests
+        env:
+          ENV: test
+        run: yarn pw:test
+
+      # 6) Upload Allure results
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: playwright/allure-results
+
+      # 7) Generate Allure Report (optional)
+      - name: Generate Allure HTML Report
+        run: |
+          npx allure generate allure-results --clean -o allure-report
+
+      # 8) Upload HTML report
+      - name: Upload Allure HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: playwright/allure-report

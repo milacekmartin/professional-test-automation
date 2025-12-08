@@ -11,8 +11,14 @@
         "strict": true,
     
         "baseUrl": ".",
-        "outDir": "../.playwright-ts-build"
+        "outDir": "../.playwright-ts-build",
+
+        "resolveJsonModule": true,
+        "esModuleInterop": true
     },
 
-    "include": ["**/*.ts"]
+    "include": [
+        "**/*.ts",
+        "data/*.json"
+    ]
 }

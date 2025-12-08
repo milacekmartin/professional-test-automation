@@ -1,8 +1,9 @@
 export const CartSelectors = {
-    container: 'cart-contents-container',
-    list: 'cart-list',
+    cartLink: 'shopping-cart-link',
+    cartBadge: 'shopping-cart-badge',
+
     item: 'inventory-item',
-    quantity: 'item-quantity',
+    itemName: 'inventory-item-name',
+
     checkoutButton: 'checkout',
-    continueShopping: 'continue-shopping'
 } as const
