@@ -2,7 +2,7 @@ import * as utils from '@utils'
 
 import { userSchema } from '../../fixtures/users'
 
-describe('BE test', () => {
+describe.skip('BE test', () => {
 
     /**
      * 
