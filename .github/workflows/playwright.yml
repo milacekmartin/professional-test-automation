@@ -1,4 +1,4 @@
-name: Playwright Tests & Allure Report
+name: Playwright Tests
 
 on:
   push:
@@ -35,31 +35,16 @@ jobs:
           ENV: test
         run: yarn pw:test
 
-      - name: Upload Allure Results
+      - name: Upload Playwright HTML Report
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
-          path: playwright/allure-results
+          name: playwright-report
+          path: playwright/playwright-report
 
-      # Generate Allure Report using dockerized Allure CLI
-      - name: Generate Allure Report
-        run: |
-          docker pull frankescobar/allure-cli:latest
-          docker run --rm \
-            -v ${{ github.workspace }}/playwright/allure-results:/allure-results \
-            -v ${{ github.workspace }}/playwright/allure-report:/allure-report \
-            -e OUTPUT_DIR=/allure-report \
-            frankescobar/allure-cli:latest \
-            generate /allure-results --clean
-
-      - name: Upload Allure HTML Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report
-          path: playwright/allure-report
-
-      - name: Deploy Allure Report to GitHub Pages
+      - name: Deploy Playwright Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: playwright/allure-report
+          publish_dir: playwright/playwright-report
+          publish_branch: gh-pages
+
