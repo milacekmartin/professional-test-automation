@@ -1,0 +1,22 @@
+{
+    "name": "pta-playwright",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "pw:test": "playwright test",
+        "pw:ui": "playwright test --ui",
+
+        "pw:report": "allure generate allure-results --clean -o allure-report",
+        "pw:open": "allure open allure-report",
+        
+        "pw:serve": "allure serve allure-results",
+        "pw:clean": "rm -rf allure-results allure-report"
+    },
+    
+    "devDependencies": {
+        "@playwright/test": "^1.44.0",
+        "allure-playwright": "^2.0.0",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
+    }
+}

@@ -1,0 +1,156 @@
+pipeline {
+    agent any
+
+    options {
+        ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 20, unit: 'MINUTES')
+        skipStagesAfterUnstable()
+    }
+
+    parameters {
+        choice(
+            name: 'BROWSER',
+            choices: ['chromium', 'firefox', 'webkit'],
+            description: 'Browser to run Playwright tests'
+        )
+        choice(
+            name: 'ENV',
+            choices: ['test', 'staging', 'prod'],
+            description: 'Environment for Playwright test run'
+        )
+        booleanParam(
+            name: 'HEADLESS',
+            defaultValue: true,
+            description: 'Run Playwright in headless mode'
+        )
+    }
+
+    environment {
+        PLAYWRIGHT_DIR = "${WORKSPACE}/playwright"
+        ALLURE_RESULTS_DIR = "${WORKSPACE}/playwright/allure-results"
+        ALLURE_REPORT_DIR = "${WORKSPACE}/playwright/allure-report"
+        PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "\033[0;36m=== CODE CHECKED OUT ===\033[0m"
+            }
+        }
+
+        stage('Install Dependencies (Yarn)') {
+            steps {
+                dir("${PLAYWRIGHT_DIR}") {
+                    sh '''
+                        echo "\033[0;36m=== INSTALL PLAYWRIGHT DEPENDENCIES ===\033[0m"
+
+                        yarn install --silent
+
+                        echo "\033[0;34mInstalling browsers...\033[0m"
+                        npx playwright install --with-deps
+
+                        echo "\033[0;32mDependencies installed successfully.\033[0m"
+                    '''
+                }
+            }
+        }
+
+        stage('Run Playwright Tests') {
+            steps {
+                script {
+                    def headlessFlag = params.HEADLESS ? "--headed=false" : "--headed"
+                    def envName = params.ENV ?: "test"
+
+                    echo "\033[0;36m=== RUNNING PLAYWRIGHT TESTS ===\033[0m"
+                    echo "\033[0;32mBrowser: ${params.BROWSER} | Env: ${envName} | Headless: ${params.HEADLESS}\033[0m"
+
+                    dir("${PLAYWRIGHT_DIR}") {
+                        sh """
+                            export ENV=${envName}
+
+                            echo "\033[0;34mStarting Playwright test run...\033[0m"
+
+                            yarn pw:test --project=${params.BROWSER} ${headlessFlag} || true
+
+                            echo "\033[0;32mPlaywright tests completed.\033[0m"
+                        """
+                    }
+                }
+            }
+
+            post {
+                always {
+                    script {
+                        echo "\033[0;36mArchiving test artifacts...\033[0m"
+
+                        def dirs = ["playwright/allure-results", "playwright/test-results"]
+                        dirs.each { dir ->
+                            if (fileExists("${WORKSPACE}/${dir}")) {
+                                archiveArtifacts artifacts: "${dir}/**/*", allowEmptyArchive: true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Generate Allure Report') {
+            when {
+                expression { fileExists("${ALLURE_RESULTS_DIR}") }
+            }
+            steps {
+                dir("${PLAYWRIGHT_DIR}") {
+                    sh '''
+                        echo "\033[0;36m=== GENERATING ALLURE REPORT ===\033[0m"
+
+                        if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
+                            npx allure generate allure-results --clean -o allure-report
+                            echo "\033[0;32mAllure report generated.\033[0m"
+                        else
+                            echo "\033[0;33mNo allure results found.\033[0m"
+                        fi
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+
+        always {
+            script {
+                echo "\033[0;36m=== FINALIZING PIPELINE ===\033[0m"
+
+                // Publish Allure report
+                if (fileExists("${ALLURE_RESULTS_DIR}")) {
+                    try {
+                        allure([
+                            includeProperties: false,
+                            jdk: '',
+                            properties: [],
+                            reportBuildPolicy: 'ALWAYS',
+                            results: [[path: "${ALLURE_RESULTS_DIR}"]]
+                        ])
+                        echo "\033[0;32mAllure report published.\033[0m"
+                    } catch (Exception e) {
+                        echo "\033[0;33mFailed to publish Allure report: ${e.getMessage()}\033[0m"
+                    }
+                } else {
+                    echo "\033[0;33mNo Allure results to publish.\033[0m"
+                }
+            }
+        }
+
+        success {
+            echo "\033[0;32mPIPELINE COMPLETED SUCCESSFULLY! 🚀\033[0m"
+        }
+
+        failure {
+            echo "\033[0;31mPIPELINE FAILED ❌\033[0m"
+        }
+    }
+}

@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "composite": true,
+    
+        "module": "commonjs",
+        "target": "ESNext",
+        "moduleResolution": "node",
+    
+        "types": ["node", "playwright"],
+    
+        "strict": true,
+    
+        "baseUrl": ".",
+        "outDir": "../.playwright-ts-build"
+    },
+
+    "include": ["**/*.ts"]
+}
