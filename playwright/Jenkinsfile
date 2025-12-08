@@ -31,7 +31,7 @@ pipeline {
         ALLURE_RESULTS_DIR = "${WORKSPACE}/playwright/allure-results"
         ALLURE_REPORT_DIR = "${WORKSPACE}/playwright/allure-report"
 
-        # ❗ prevents EACCES permission errors on Mac/Linux
+        // Prevents Playwright from writing to system cache (macOS/Linux)
         PLAYWRIGHT_BROWSERS_PATH = "0"
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true"
 
@@ -43,7 +43,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "\033[0;36m=== CODE CHECKED OUT ===\033[0m"
+                echo "=== CODE CHECKED OUT ==="
             }
         }
 
@@ -51,15 +51,14 @@ pipeline {
             steps {
                 dir("${PLAYWRIGHT_DIR}") {
                     sh '''
-                        echo "\033[0;36m=== INSTALLING PLAYWRIGHT DEPENDENCIES ===\033[0m"
+                        echo "=== INSTALLING PLAYWRIGHT DEPENDENCIES ==="
 
                         yarn install --silent
 
-                        echo "\033[0;34mInstalling Playwright browsers...\033[0m"
-                        # NO --with-deps, it breaks OSX/Jenkins!
+                        echo "Installing Playwright browsers..."
                         npx playwright install chromium firefox webkit
 
-                        echo "\033[0;32mPlaywright dependencies installed.\033[0m"
+                        echo "Playwright dependencies installed."
                     '''
                 }
             }
@@ -71,14 +70,14 @@ pipeline {
                     def headlessFlag = params.HEADLESS ? "" : "--headed"
                     def envName = params.ENV
 
-                    echo "\033[0;36m=== STARTING PLAYWRIGHT TESTS ===\033[0m"
-                    echo "\033[0;32mBrowser: ${params.BROWSER} | ENV: ${envName} | Headless: ${params.HEADLESS}\033[0m"
+                    echo "=== STARTING PLAYWRIGHT TESTS ==="
+                    echo "Browser: ${params.BROWSER} | ENV: ${envName} | Headless: ${params.HEADLESS}"
 
                     dir("${PLAYWRIGHT_DIR}") {
                         sh """
                             export ENV=${envName}
 
-                            echo "\033[0;34mRunning tests...\033[0m"
+                            echo "Running tests..."
                             yarn pw:test --project=${params.BROWSER} ${headlessFlag} || true
                         """
                     }
@@ -88,7 +87,7 @@ pipeline {
             post {
                 always {
                     script {
-                        echo "\033[0;36mArchiving artifacts...\033[0m"
+                        echo "Archiving artifacts..."
 
                         def outputs = [
                             "${WORKSPACE}/playwright/allure-results",
@@ -112,13 +111,13 @@ pipeline {
             steps {
                 dir("${PLAYWRIGHT_DIR}") {
                     sh '''
-                        echo "\033[0;36m=== GENERATING ALLURE REPORT ===\033[0m"
+                        echo "=== GENERATING ALLURE REPORT ==="
 
                         if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
                             npx allure generate allure-results --clean -o allure-report
-                            echo "\033[0;32mAllure report generated.\033[0m"
+                            echo "Allure report generated."
                         else
-                            echo "\033[0;33mNo allure results found.\033[0m"
+                            echo "No allure results found."
                         fi
                     '''
                 }
@@ -129,7 +128,7 @@ pipeline {
     post {
         always {
             script {
-                echo "\033[0;36m=== FINALIZING PIPELINE ===\033[0m"
+                echo "=== FINALIZING PIPELINE ==="
 
                 if (fileExists("${ALLURE_RESULTS_DIR}")) {
                     try {
@@ -138,20 +137,20 @@ pipeline {
                             results: [[path: "${ALLURE_RESULTS_DIR}"]],
                             reportBuildPolicy: 'ALWAYS'
                         ])
-                        echo "\033[0;32mAllure report published.\033[0m"
+                        echo "Allure report published."
                     } catch (Exception e) {
-                        echo "\033[0;31mFailed to publish Allure report: ${e.message}\033[0m"
+                        echo "Failed to publish Allure report: ${e.message}"
                     }
                 }
             }
         }
 
         success {
-            echo "\033[0;32mPIPELINE SUCCESSFUL! 🚀\033[0m"
+            echo "PIPELINE SUCCESSFUL! 🚀"
         }
 
         failure {
-            echo "\033[0;31mPIPELINE FAILED ❌\033[0m"
+            echo "PIPELINE FAILED ❌"
         }
     }
 }
