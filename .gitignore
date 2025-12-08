@@ -5,3 +5,5 @@ screenshots
 **/allure-report
 **/allure
 **/test-results
+
+**/playwright-report

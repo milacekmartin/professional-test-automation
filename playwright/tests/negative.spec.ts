@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test'
 
 import { LoginPage } from '../pages/LoginPage'
 import { HomePage } from '../pages/HomePage'
-import { login } from '../env'
 
 test.describe('Negative test', () => {
 

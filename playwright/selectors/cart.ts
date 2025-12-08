@@ -5,5 +5,5 @@ export const CartSelectors = {
     item: 'inventory-item',
     itemName: 'inventory-item-name',
 
-    checkoutButton: 'checkout',
+    checkoutButton: 'checkout'
 } as const

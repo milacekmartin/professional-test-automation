@@ -5,8 +5,6 @@ import { LoginPage } from '../pages/LoginPage'
 import { HomePage } from '../pages/HomePage'
 import { CartPage } from '../pages/CartPage'
 
-import { login } from '../env'
-
 test.describe('Add to cart', () => {
 
     test.beforeEach(async ({ page }) => {

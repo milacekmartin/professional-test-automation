@@ -17,16 +17,9 @@ export class InventoryPage {
         for (let i = 0; i < count; i++) {
             const item = items.nth(i)
 
-            // obrázok
             await expect(item.locator('img.inventory_item_img')).toBeVisible()
-
-            // popis
             await expect(item.getByTestId(InventorySelectors.itemDesc)).toBeVisible()
-
-            // cena
             await expect(item.getByTestId(InventorySelectors.itemPrice)).toContainText('$')
-
-            // button Add to cart
             await expect(item.getByRole('button')).toHaveText('Add to cart')
         }
     }
@@ -38,11 +31,9 @@ export class InventoryPage {
         for (let i = 0; i < count; i++) {
             const item = items.nth(i)
 
-            // klik na Add to cart
             const addButton = item.getByRole('button', { name: 'Add to cart' })
             await addButton.click()
 
-            // čakáme na stav Remove
             await expect(item.getByRole('button', { name: 'Remove' })).toBeVisible()
         }
 
@@ -50,14 +41,10 @@ export class InventoryPage {
     }
 
     async goToCart(expectedCount: number) {
-        // odznak počtu položiek
         const badge = this.page.getByTestId(InventorySelectors.cartBadge)
         await expect(badge).toHaveText(String(expectedCount))
 
-        // klik na ikonku košíka
         await this.page.getByTestId(InventorySelectors.cartLink).click()
-
-        // overíme URL
         await expect(this.page).toHaveURL(/cart/)
     }
 }
