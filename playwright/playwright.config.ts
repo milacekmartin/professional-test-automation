@@ -28,7 +28,8 @@ export default defineConfig({
                 detail: true,
                 suiteTitle: false
             }
-        ]
+        ],
+        ['html', { outputFolder: 'playwright-report', open: 'never' }]
     ],
 
     projects: [
