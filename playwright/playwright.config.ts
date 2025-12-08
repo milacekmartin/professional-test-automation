@@ -2,12 +2,16 @@ import { defineConfig } from '@playwright/test'
 import { baseUrl } from './env'
 
 export default defineConfig({
+
     testDir: './tests',
+
+    fullyParallel: false,
+    workers: 1,
+    retries: 0,
 
     use: {
         baseURL: baseUrl,
         headless: true,
-
         testIdAttribute: 'data-test',
 
         screenshot: 'only-on-failure',
@@ -17,10 +21,15 @@ export default defineConfig({
 
     reporter: [
         ['list'],
-        ['allure-playwright']
+        [
+            'allure-playwright', 
+            {
+                outputFolder: 'allure-results',
+                detail: true,
+                suiteTitle: false
+            }
+        ]
     ],
-
-    fullyParallel: true,
 
     projects: [
         {
