@@ -2,7 +2,7 @@ name: Playwright Tests & Publish Allure Report
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
 
 jobs:
@@ -11,12 +11,14 @@ jobs:
 
     defaults:
       run:
-        working-directory: playwright
+        working-directory: playwright  # IMPORTANT: run inside /playwright folder
 
     steps:
+      # 1) Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2) Setup Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -24,25 +26,35 @@ jobs:
           cache: "yarn"
           cache-dependency-path: playwright/yarn.lock
 
+      # 3) Install dependencies
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # 4) Install Playwright browsers
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      # 5) Run Playwright tests
       - name: Run Playwright tests
         env:
-          ENV: test
+          ENV: test   # You can override this with environment matrix if needed
         run: yarn pw:test
 
-      # Save raw allure-results for debugging
+      # 6) Upload raw Allure results
       - name: Upload Allure Results
         uses: actions/upload-artifact@v4
         with:
           name: allure-results
           path: playwright/allure-results
 
-      # 🔥 Install Allure CLI
+      # 7) Install Java (required for Allure CLI)
+      - name: Install Java for Allure
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 8) Install Allure CLI (official binary)
       - name: Install Allure CLI
         run: |
           sudo apt-get update
@@ -52,18 +64,18 @@ jobs:
           sudo mv allure-cli/allure-*/bin/allure /usr/local/bin/allure
           allure --version
 
-      # 🔥 Generate HTML Allure report
-      - name: Generate Allure Report
+      # 9) Generate HTML Allure report
+      - name: Generate Allure HTML Report
         run: allure generate allure-results --clean -o allure-report
 
-      # 🔥 Upload HTML report artifact
+      # 10) Upload HTML Allure report as artifact
       - name: Upload Allure HTML Report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: playwright/allure-report
 
-      # 🔥 Deploy Allure report to GitHub Pages
+      # 11) Deploy to GitHub Pages
       - name: Deploy Allure Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
