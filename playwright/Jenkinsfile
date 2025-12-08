@@ -134,7 +134,7 @@ pipeline {
                     try {
                         allure([
                             includeProperties: false,
-                            results: [[path: "${ALLURE_RESULTS_DIR}"]],
+                            results: [[path: "playwright/allure-results"]],
                             reportBuildPolicy: 'ALWAYS'
                         ])
                         echo "Allure report published."
