@@ -41,15 +41,16 @@ jobs:
           name: allure-results
           path: playwright/allure-results
 
-      # Generate Allure Report using Docker (CLI)
+      # Generate Allure Report using dockerized Allure CLI
       - name: Generate Allure Report
         run: |
-          docker pull simple-elf/allure:latest
+          docker pull frankescobar/allure-cli:latest
           docker run --rm \
-            -v ${{ github.workspace }}/playwright/allure-results:/tmp/allure-results \
-            -v ${{ github.workspace }}/playwright/allure-report:/tmp/allure-report \
-            simple-elf/allure:latest \
-            allure generate /tmp/allure-results --clean -o /tmp/allure-report
+            -v ${{ github.workspace }}/playwright/allure-results:/allure-results \
+            -v ${{ github.workspace }}/playwright/allure-report:/allure-report \
+            -e OUTPUT_DIR=/allure-report \
+            frankescobar/allure-cli:latest \
+            generate /allure-results --clean
 
       - name: Upload Allure HTML Report
         uses: actions/upload-artifact@v4
