@@ -45,6 +45,11 @@ jobs:
           ENV: ${{ github.event.inputs.environment || 'test' }}
         run: yarn pw:test
 
+      # 🔥 NEW – REQUIRED FOR TEST.STEP SUPPORT ON GITHUB PAGES
+      - name: 📄 Generate Playwright HTML report
+        if: always()
+        run: npx playwright show-report --output=playwright-report
+
       - name: 📊 Upload Playwright HTML report
         uses: actions/upload-artifact@v4
         if: always()
@@ -53,7 +58,7 @@ jobs:
           path: playwright/playwright-report
 
       - name: 🚀 Deploy Playwright Report to GitHub Pages
-        if: ${{ github.event.inputs.run_deploy == 'true' && success() }}
+        if: ${{ github.event.inputs.run_deploy == 'true' && always() }}
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
