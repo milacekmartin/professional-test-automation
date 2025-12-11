@@ -34,7 +34,9 @@ test.describe('Negative test', () => {
          * Step 1: Create a HomePage instance
          * (Inventory is loaded automatically after login)
          */
-        const home = new HomePage(page)
+        await test.step('Initialize HomePage object', async () => {
+            new HomePage(page)
+        })
 
         /**
          * Step 2: Define a product name that does not exist in the store
@@ -45,6 +47,8 @@ test.describe('Negative test', () => {
          * Step 3: Verify that the non-existing product is not present
          * anywhere on the page
          */
-        await expect(page.getByText(nonExisting)).toHaveCount(0)
+        await test.step('Verify non-existing product is not visible in inventory', async () => {
+            await expect(page.getByText(nonExisting)).toHaveCount(0)
+        })
     })
 })
