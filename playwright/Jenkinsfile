@@ -1,6 +1,35 @@
+/**
+ * JENKINS PIPELINE FOR PLAYWRIGHT E2E TESTS
+ * ---------------------------------------------------------
+ * This CI pipeline performs the following steps:
+ *
+ * 1) Checks out the repository
+ * 2) Installs Playwright dependencies via Yarn
+ * 3) Installs Playwright browsers locally inside the workspace
+ * 4) Executes Playwright E2E tests with configurable parameters:
+ *      - Browser selection (chromium, firefox, webkit)
+ *      - Environment profile (test, staging, prod)
+ *      - Headless / headed execution
+ * 5) Archives test artifacts (screenshots, videos, results)
+ * 6) Generates Allure report if results exist
+ * 7) Publishes Allure report via Jenkins Allure plugin
+ *
+ * Notes:
+ * - PLAYWRIGHT_BROWSERS_PATH=0 ensures Playwright does not write
+ *   to system directories, preventing permission issues on macOS/Linux agents.
+ * - The pipeline is stable, modular, and CI-friendly.
+ */
+
 pipeline {
     agent any
 
+    /**
+     * Pipeline options:
+     * - ANSI color output
+     * - Keep only last 10 builds
+     * - Timeout protection
+     * - Skip remaining stages if build becomes unstable
+     */
     options {
         ansiColor('xterm')
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -8,6 +37,9 @@ pipeline {
         skipStagesAfterUnstable()
     }
 
+    /**
+     * User-configurable parameters for CI builds.
+     */
     parameters {
         choice(
             name: 'BROWSER',
@@ -26,12 +58,15 @@ pipeline {
         )
     }
 
+    /**
+     * Environment variables used throughout the pipeline.
+     */
     environment {
         PLAYWRIGHT_DIR = "${WORKSPACE}/playwright"
         ALLURE_RESULTS_DIR = "${WORKSPACE}/playwright/allure-results"
         ALLURE_REPORT_DIR = "${WORKSPACE}/playwright/allure-report"
 
-        // Prevents Playwright from writing to system cache (macOS/Linux)
+        // Prevents Playwright from writing to system cache
         PLAYWRIGHT_BROWSERS_PATH = "0"
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true"
 
@@ -40,6 +75,9 @@ pipeline {
 
     stages {
 
+        /**
+         * Checkout the repository from SCM.
+         */
         stage('Checkout') {
             steps {
                 checkout scm
@@ -47,6 +85,10 @@ pipeline {
             }
         }
 
+        /**
+         * Install all Node/Yarn dependencies required by Playwright.
+         * Also installs Playwright browsers inside workspace.
+         */
         stage('Install Dependencies (Yarn)') {
             steps {
                 dir("${PLAYWRIGHT_DIR}") {
@@ -64,6 +106,10 @@ pipeline {
             }
         }
 
+        /**
+         * Executes Playwright E2E tests.
+         * Test parameters: browser, headless mode, environment.
+         */
         stage('Run Tests') {
             steps {
                 script {
@@ -84,6 +130,9 @@ pipeline {
                 }
             }
 
+            /**
+             * Archive test results, videos, screenshots, traces.
+             */
             post {
                 always {
                     script {
@@ -104,6 +153,9 @@ pipeline {
             }
         }
 
+        /**
+         * Generate Allure HTML report if allure-results exist.
+         */
         stage('Generate Allure Report') {
             when {
                 expression { fileExists("${ALLURE_RESULTS_DIR}") }
@@ -125,6 +177,10 @@ pipeline {
         }
     }
 
+    /**
+     * Final pipeline actions always executed.
+     * Publishes Allure report via Jenkins plugin if results exist.
+     */
     post {
         always {
             script {

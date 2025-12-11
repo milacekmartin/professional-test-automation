@@ -1,87 +1,179 @@
 # Playwright E2E Automation Framework
 
-This directory contains a fully isolated **Playwright E2E test automation framework** designed for clean separation from Cypress.  
-It includes:
+This repository contains a fully isolated **Playwright E2E automation framework**  
+built using **TypeScript**, **Page Object Model**, **ENV profiles**,  
+and **Yarn workspace**.  
 
-- **TypeScript**
-- **Page Object Model (POM)**
-- **Centralized data-test selectors**
-- **Environment profiles (ENV=test | staging | prod)**
-- **Allure reporting**
-- **Yarn-only workflow**
-- **CI/CD-ready (Jenkins pipeline included)**
+The project is designed to be:
+
+- ✔ Modular  
+- ✔ Maintainable  
+- ✔ CI/CD friendly  
+- ✔ Readable and scalable  
+- ✔ Suitable for both demo assignments and real-world automation suites  
 
 ---
 
-## 📁 Project Structure
+# 📦 Features
+
+- **Playwright + TypeScript**
+- **Page Object Model (POM)**
+- **Selectors centralized in `/selectors`**
+- **Test data in JSON**
+- **Environment switching (test / staging / prod)**
+- **Yarn-only workflow (works on macOS & Windows)**
+- **Supports both Yarn and npm commands**
+- **HTML and Allure reporting**
+- **CI/CD pipelines (Jenkins + GitHub Actions)**
+
+---
+
+# 📁 Project Structure
 
 ```
 playwright/
+├── pages/               # Page Object Model classes
+├── selectors/           # Centralized selectors for each page
+├── helpers/             # Utilities (random data generators etc.)
+├── data/                # Test data (JSON)
+├── tests/               # All Playwright test files
 │
-├── pages/               # Page Object Model (LoginPage, InventoryPage, CartPage…)
-├── selectors/           # Centralized data-test selectors for each page
-├── helpers/             # Utilities (randomString, randomNumber, attachments…)
-│
-├── tests/               # All test suites (order.spec.ts, api.spec.ts…)
-│
-├── tsconfig.json        # TypeScript config with alias paths
-├── playwright.config.ts # Playwright configuration (Allure + environment support)
-│
-├── package.json         # Yarn-based Playwright workspace
+├── configs/             # Environment JSON configs
+├── playwright.config.ts # Global Playwright configuration
+├── tsconfig.json        # TypeScript config
+├── package.json         # Yarn workspace config
 └── README.md            # This document
 ```
 
 ---
 
-## 🛠 Installation
+# 🛠 Installation (Windows & macOS)
 
-From the **root project directory**:
+## 1️⃣ Install Node.js  
+Playwright requires Node.js 16 or higher.
+
+Download from:  
+👉 https://nodejs.org/en/download/
+
+Check version:
+
+```sh
+node -v
+npm -v
+```
+
+---
+
+## 2️⃣ Install Yarn (Windows & macOS)
+
+### 🟣 macOS
+```sh
+brew install yarn
+```
+(Requires Homebrew: https://brew.sh)
+
+Alternatively:
+```sh
+npm install -g yarn
+```
+
+### 🟦 Windows
+```sh
+npm install -g yarn
+```
+
+Check Yarn version:
+
+```sh
+yarn -v
+```
+
+---
+
+## 3️⃣ Install dependencies
+
+From the **repo root**, run:
 
 ```sh
 cd playwright
 yarn install
-npx playwright install
 ```
 
-This installs:
+Or using NPM:
 
-- Playwright browsers  
-- Playwright’s own Node modules  
-- Allure integration  
+```sh
+npm install
+```
 
 ---
 
-## ▶️ Running Tests
+## 4️⃣ Install Playwright browsers
 
-### Run all Playwright tests:
+```sh
+npx playwright install
+```
 
+Or with Yarn:
+
+```sh
+yarn playwright install
+```
+
+---
+
+# ▶️ Running Tests (YARN + NPM)
+
+## Run **all tests** (Yarn)
 ```sh
 yarn pw:test
 ```
 
-### Run in UI mode:
-
+## Run all tests (NPM)
 ```sh
-yarn pw:ui
-```
-
-### Run with a specific browser:
-
-```sh
-yarn pw:test --project=firefox
-```
-
-### Run in headed mode:
-
-```sh
-ENV=test yarn pw:test --headed
+npx playwright test
 ```
 
 ---
 
-## 🌍 Environment Switching
+## Run in UI mode
+```sh
+yarn pw:ui
+```
 
-The framework reads environment config via:
+NPM:
+```sh
+npx playwright test --ui
+```
+
+---
+
+## Run with specific browser
+```sh
+yarn pw:test --project=firefox
+```
+
+NPM:
+```sh
+npx playwright test --project=firefox
+```
+
+---
+
+## Headed mode
+```sh
+ENV=test yarn pw:test --headed
+```
+
+NPM:
+```sh
+ENV=test npx playwright test --headed
+```
+
+---
+
+# 🌍 Environment Switching
+
+Environment is controlled via:
 
 ```
 ENV=test | staging | prod
@@ -93,7 +185,7 @@ Example:
 ENV=staging yarn pw:test
 ```
 
-Environment files live in:
+Configs are stored in:
 
 ```
 playwright/configs/<env>.json
@@ -101,14 +193,14 @@ playwright/configs/<env>.json
 
 ---
 
-## 🧱 Page Object Model Structure
+# 🧱 Page Object Model (POM)
 
-Each page consists of:
+Each page has:
 
-- Its own selector file (`selectors/*.ts`)
-- Its Page Object class (`pages/*.ts`)
+- A **Page class** in `/pages`
+- A **selector file** in `/selectors`
 
-Example selector usage:
+Example:
 
 ```ts
 await page.getByTestId(LoginSelectors.username).fill("standard_user");
@@ -117,9 +209,9 @@ await page.getByTestId(LoginSelectors.password).fill("secret_sauce");
 
 ---
 
-## 🎯 Alias Imports
+# 🎯 Alias Imports
 
-`tsconfig.json` defines clean aliases:
+Configured in `tsconfig.json`:
 
 ```ts
 import { LoginPage } from '@pages/LoginPage'
@@ -130,102 +222,114 @@ import { login } from '@config/env'
 
 ---
 
-## 📊 Allure Reporting
+# 📊 Reporting
 
-Enabled in `playwright.config.ts`:
+## 1️⃣ Playwright HTML report
 
-```ts
-reporter: [
-  ['list'],
-  ['allure-playwright']
-]
+Generated automatically into:
+
+```
+playwright/playwright-report/
 ```
 
-Results are stored in:
+View locally:
+
+```sh
+npx playwright show-report
+```
+
+---
+
+## 2️⃣ Allure Reporting
+
+Enabled in config:
+
+```ts
+['allure-playwright']
+```
+
+Results stored in:
 
 ```
 playwright/allure-results/
 ```
 
-### Generate report:
+Generate report:
 
 ```sh
-yarn pw:report
-```
-
-### Open generated report:
-
-```sh
-yarn pw:open
-```
-
-### Live server:
-
-```sh
-yarn pw:serve
+allure generate allure-results --clean -o allure-report
 ```
 
 ---
 
-## 🧪 Example Full E2E Test Execution
+# 🚀 CI/CD Integration
 
+## ✔ Jenkins Pipeline (`/Jenkinsfile`)
+- Yarn installation  
+- Playwright browser setup  
+- ENV/BROWSER parameters  
+- Reporting & artifact archiving  
+
+## ✔ GitHub Actions Workflow
+Located in:
+
+```
+.github/workflows/playwright.yml
+```
+
+Includes:
+
+- Node setup  
+- Yarn caching  
+- Playwright install  
+- Test execution  
+- Report upload  
+- (Optional) GitHub Pages publishing  
+
+---
+
+# 💡 Best Practices
+
+- Prefer `getByTestId()` for stable locators  
+- Keep selectors in `/selectors/*.ts`  
+- Page Objects = behavior only  
+- Tests = orchestration  
+- Use environment switching for multi-profile CI  
+- Keep PW isolated from Cypress  
+
+---
+
+# 🛠 Troubleshooting
+
+### Playwright browsers missing?
 ```sh
-yarn pw:test
+npx playwright install
 ```
 
-Output example:
-
+### JSON import error?
+Add to tsconfig:
+```json
+"resolveJsonModule": true
 ```
-Running 1 test using 1 worker
-✓ full E2E purchase flow (3.7s)
-```
 
-Allure output appears in:
-
-```
-playwright/allure-results
-playwright/allure-report
+### Yarn not found (Windows)?
+Reinstall Yarn globally:
+```sh
+npm install -g yarn
 ```
 
 ---
 
-## 🏗 Jenkins Integration
+# 🎉 Summary
 
-The project includes a ready-to-use Jenkins pipeline:
+This framework offers:
 
-```
-/Jenkinsfile
-```
+- ✔ Full E2E capabilities  
+- ✔ Clear & scalable POM architecture  
+- ✔ ENV-driven configuration  
+- ✔ Browser matrix execution  
+- ✔ Allure + HTML reporting  
+- ✔ CI/CD ready  
+- ✔ Compatible with both Yarn and NPM  
 
-Features:
-
-- Yarn-based Playwright installation
-- ENV, BROWSER, HEADLESS parameters
-- Artifact archiving
-- Allure result publishing
-- CI stable workflow
-
----
-
-## 💡 Best Practices
-
-- Always use `getByTestId()` for maximum stability
-- Keep selectors isolated in `selectors/*.ts`
-- Page Objects should strictly represent UI behavior
-- Tests should orchestrate logic, not Page Objects
-- Keep Playwright isolated from Cypress to avoid dependency conflicts
-
----
-
-## 🎉 Summary
-
-This Playwright framework is:
-
-- 🔒 Fully isolated from Cypress  
-- ⚡ Fast and modern  
-- 🧩 Modular and clean  
-- 📊 Integrated with Allure  
-- 🧱 CI/CD ready  
-- 🧼 Maintanable and scalable  
-
-Enjoy your new Playwright automation environment! 🚀
+Enjoy your Playwright automation framework! 🚀
