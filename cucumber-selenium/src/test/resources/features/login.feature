@@ -7,7 +7,7 @@ Feature: User login
   Background:
     Given I am on the login page
 
-  @positive
+  @positive @demo_login_valid
   Scenario: Successful login with valid credentials
     When I log in as "standard_user" with password "secret_sauce"
     Then I should see the products page
@@ -24,7 +24,7 @@ Feature: User login
       | problem_user     |
       | performance_glitch_user |
 
-  @negative
+  @negative @demo_login_negative
   Scenario: Locked-out user cannot log in
     When I log in as "locked_out_user" with password "secret_sauce"
     Then I should see an error message containing "locked out"

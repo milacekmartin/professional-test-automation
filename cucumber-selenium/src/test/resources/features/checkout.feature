@@ -7,7 +7,7 @@ Feature: Shopping cart and checkout
   Background:
     Given I am logged in as "standard_user"
 
-  @positive
+  @positive @demo_cart
   Scenario: Add a single product and complete checkout
     When I add "Sauce Labs Backpack" to the cart
     And I open the cart
@@ -25,7 +25,7 @@ Feature: Shopping cart and checkout
     And I open the cart
     Then the cart should contain 3 items
 
-  @negative
+  @negative @demo_checkout_negative
   Scenario: Checkout form rejects missing last name
     When I add "Sauce Labs Backpack" to the cart
     And I open the cart

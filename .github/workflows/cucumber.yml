@@ -64,10 +64,10 @@ jobs:
             exit 0
           fi
           declare -A MAP
-          MAP[login_valid]="(@login and @positive)"
-          MAP[login_negative]="(@login and @negative)"
-          MAP[cart]="(@checkout and @positive)"
-          MAP[checkout_negative]="(@checkout and @negative)"
+          MAP[login_valid]="@demo_login_valid"
+          MAP[login_negative]="@demo_login_negative"
+          MAP[cart]="@demo_cart"
+          MAP[checkout_negative]="@demo_checkout_negative"
           MAP[bug]="@bug"
           IFS=',' read -ra TOKENS <<< "$KEYS"
           EXPR=""
