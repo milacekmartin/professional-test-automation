@@ -1,1 +1,1 @@
-{"reportName":"Cypress — Allure Report","testRuns":[],"statistic":{"failed":0,"broken":0,"skipped":0,"passed":4,"unknown":0,"total":4},"time":{"start":1776960820082,"stop":1776960822149,"duration":2067,"minDuration":119,"maxDuration":966,"sumDuration":1973}}
+{"reportName":"Cypress — Allure Report","testRuns":[],"statistic":{"failed":1,"broken":0,"skipped":0,"passed":12,"unknown":0,"total":13},"time":{"start":1776961836212,"stop":1776961859781,"duration":23569,"minDuration":108,"maxDuration":5211,"sumDuration":16177}}
