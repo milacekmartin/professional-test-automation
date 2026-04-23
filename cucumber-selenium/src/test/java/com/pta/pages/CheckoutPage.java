@@ -2,10 +2,16 @@ package com.pta.pages;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+
+import java.time.Duration;
 
 public class CheckoutPage {
 
     private final WebDriver driver;
+    private final WebDriverWait wait;
 
     private final By firstName  = By.id("first-name");
     private final By lastName   = By.id("last-name");
@@ -17,20 +23,27 @@ public class CheckoutPage {
 
     public CheckoutPage(WebDriver driver) {
         this.driver = driver;
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
     public void fillAndContinue(String first, String last, String zip) {
-        driver.findElement(firstName).clear();
-        if (first != null && !first.isEmpty()) driver.findElement(firstName).sendKeys(first);
-        driver.findElement(lastName).clear();
-        if (last != null && !last.isEmpty()) driver.findElement(lastName).sendKeys(last);
-        driver.findElement(postalCode).clear();
-        if (zip != null && !zip.isEmpty()) driver.findElement(postalCode).sendKeys(zip);
+        WebElement fn = wait.until(ExpectedConditions.visibilityOfElementLocated(firstName));
+        fn.clear();
+        if (first != null && !first.isEmpty()) fn.sendKeys(first);
+
+        WebElement ln = driver.findElement(lastName);
+        ln.clear();
+        if (last != null && !last.isEmpty()) ln.sendKeys(last);
+
+        WebElement pc = driver.findElement(postalCode);
+        pc.clear();
+        if (zip != null && !zip.isEmpty()) pc.sendKeys(zip);
+
         driver.findElement(continueBtn).click();
     }
 
     public void finish() {
-        driver.findElement(finishBtn).click();
+        wait.until(ExpectedConditions.elementToBeClickable(finishBtn)).click();
     }
 
     public String errorMessage() {
@@ -38,6 +51,10 @@ public class CheckoutPage {
     }
 
     public String confirmationMessage() {
-        return driver.findElements(confirmMsg).isEmpty() ? "" : driver.findElement(confirmMsg).getText();
+        try {
+            return wait.until(ExpectedConditions.visibilityOfElementLocated(confirmMsg)).getText();
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

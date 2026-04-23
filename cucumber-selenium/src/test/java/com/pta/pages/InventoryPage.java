@@ -3,12 +3,16 @@ package com.pta.pages;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.time.Duration;
 import java.util.List;
 
 public class InventoryPage {
 
     private final WebDriver driver;
+    private final WebDriverWait wait;
 
     private final By title      = By.cssSelector(".title");
     private final By cartBadge  = By.cssSelector(".shopping_cart_badge");
@@ -16,21 +20,27 @@ public class InventoryPage {
 
     public InventoryPage(WebDriver driver) {
         this.driver = driver;
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
     public boolean isLoaded() {
-        return !driver.findElements(title).isEmpty()
-                && driver.findElement(title).getText().equalsIgnoreCase("Products");
+        try {
+            wait.until(ExpectedConditions.textToBePresentInElementLocated(title, "Products"));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public void addToCart(String productName) {
-        // Find product by name, then its "Add to cart" button in same card
+        // Wait for the inventory grid to render before trying to click a specific item
+        wait.until(ExpectedConditions.visibilityOfElementLocated(title));
         String xpath = String.format(
                 "//div[contains(@class,'inventory_item')]" +
                 "[.//div[contains(@class,'inventory_item_name') and normalize-space()='%s']]" +
                 "//button[contains(@class,'btn_inventory')]",
                 productName);
-        WebElement btn = driver.findElement(By.xpath(xpath));
+        WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
         btn.click();
     }
 
@@ -40,6 +50,9 @@ public class InventoryPage {
     }
 
     public void openCart() {
-        driver.findElement(cartLink).click();
+        WebElement link = wait.until(ExpectedConditions.elementToBeClickable(cartLink));
+        link.click();
+        // Wait until URL navigates to cart
+        wait.until(d -> d.getCurrentUrl().contains("cart.html"));
     }
 }
