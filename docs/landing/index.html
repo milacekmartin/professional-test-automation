@@ -60,6 +60,12 @@
     .meta{display:flex;justify-content:space-between;align-items:center;margin:-6px 0 16px;font-size:12px;color:var(--text-dim)}
     .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.2)}
     .status-dot.na{background:var(--text-dim);box-shadow:0 0 0 3px rgba(154,160,171,.15)}
+    .status-dot.run{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.25);animation:pulse 1.4s ease-in-out infinite}
+    .status-dot.fail{background:var(--fail);box-shadow:0 0 0 3px rgba(239,68,68,.22)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .btn[aria-disabled="true"]{opacity:.55;cursor:not-allowed;pointer-events:none;filter:grayscale(.4)}
+    .spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
 
     .section{margin:64px 0;padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)}
     .section h2{margin:0 0 16px;font-size:24px;font-weight:700}
@@ -94,7 +100,7 @@
 
     <div class="grid">
       <!-- Cypress -->
-      <article class="card">
+      <article class="card" data-workflow="cypress.yml" data-report="./cypress/">
         <div class="card-head">
           <div class="logo-dot cy">CY</div>
           <div>
@@ -109,15 +115,15 @@
           <span class="tag">API + E2E</span>
           <span class="tag">Allure</span>
         </div>
-        <div class="meta"><span><span class="status-dot"></span>Auto-published on push</span></div>
+        <div class="meta"><span class="status-line"><span class="status-dot na"></span><span class="status-text">Loading status…</span></span></div>
         <div class="actions">
-          <a class="btn btn-primary" href="./cypress/">View report →</a>
+          <a class="btn btn-primary btn-report" href="./cypress/" aria-disabled="true" data-default-label="View report →"><span class="spin"></span><span class="btn-label">Checking…</span></a>
           <a class="btn btn-secondary" href="https://github.com/milacekmartin/professional-test-automation/tree/main/cypress" target="_blank" rel="noopener">Source ↗</a>
         </div>
       </article>
 
       <!-- Playwright -->
-      <article class="card">
+      <article class="card" data-workflow="playwright.yml" data-report="./playwright/">
         <div class="card-head">
           <div class="logo-dot pw">PW</div>
           <div>
@@ -132,15 +138,15 @@
           <span class="tag">Cross-browser</span>
           <span class="tag">HTML Report</span>
         </div>
-        <div class="meta"><span><span class="status-dot"></span>Auto-published on push</span></div>
+        <div class="meta"><span class="status-line"><span class="status-dot na"></span><span class="status-text">Loading status…</span></span></div>
         <div class="actions">
-          <a class="btn btn-primary" href="./playwright/">View report →</a>
+          <a class="btn btn-primary btn-report" href="./playwright/" aria-disabled="true" data-default-label="View report →"><span class="spin"></span><span class="btn-label">Checking…</span></a>
           <a class="btn btn-secondary" href="https://github.com/milacekmartin/professional-test-automation/tree/main/playwright" target="_blank" rel="noopener">Source ↗</a>
         </div>
       </article>
 
       <!-- Cucumber -->
-      <article class="card">
+      <article class="card" data-workflow="cucumber.yml" data-report="./cucumber/">
         <div class="card-head">
           <div class="logo-dot cu">GK</div>
           <div>
@@ -155,9 +161,9 @@
           <span class="tag">Selenium 4</span>
           <span class="tag">Maven</span>
         </div>
-        <div class="meta"><span><span class="status-dot"></span>Auto-published on push</span></div>
+        <div class="meta"><span class="status-line"><span class="status-dot na"></span><span class="status-text">Loading status…</span></span></div>
         <div class="actions">
-          <a class="btn btn-primary" href="./cucumber/">View report →</a>
+          <a class="btn btn-primary btn-report" href="./cucumber/" aria-disabled="true" data-default-label="View report →"><span class="spin"></span><span class="btn-label">Checking…</span></a>
           <a class="btn btn-secondary" href="https://github.com/milacekmartin/professional-test-automation/tree/main/cucumber-selenium" target="_blank" rel="noopener">Source ↗</a>
         </div>
       </article>
@@ -190,5 +196,76 @@
       <small>© 2026 Professional Test Automation s.r.o. — Test automation with fixed pricing.</small>
     </div>
   </footer>
+
+  <script>
+  (function(){
+    const REPO = 'milacekmartin/professional-test-automation';
+    const API  = 'https://api.github.com/repos/' + REPO + '/actions/workflows/';
+
+    function fmtAgo(iso){
+      const d = new Date(iso), now = Date.now(), diff = (now - d.getTime())/1000;
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+      return Math.floor(diff/86400) + 'd ago';
+    }
+
+    async function refreshCard(card){
+      const wf = card.dataset.workflow;
+      const btn = card.querySelector('.btn-report');
+      const statusDot = card.querySelector('.status-dot');
+      const statusText = card.querySelector('.status-text');
+      const btnLabel = btn.querySelector('.btn-label');
+      const spin = btn.querySelector('.spin');
+
+      try{
+        const r = await fetch(API + wf + '/runs?per_page=1&branch=main', {headers:{Accept:'application/vnd.github+json'}});
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        const run = data.workflow_runs && data.workflow_runs[0];
+        if (!run){ statusText.textContent = 'No runs yet'; return; }
+
+        const running = run.status !== 'completed';
+        const ok = run.conclusion === 'success';
+
+        if (running){
+          statusDot.className = 'status-dot run';
+          statusText.innerHTML = 'Running · <a href="' + run.html_url + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">run #' + run.run_number + '</a>';
+          btn.setAttribute('aria-disabled','true');
+          spin.style.display = 'inline-block';
+          btnLabel.textContent = 'Test running…';
+        } else {
+          statusDot.className = ok ? 'status-dot' : 'status-dot fail';
+          const label = ok ? 'Passed' : (run.conclusion || 'Failed');
+          statusText.innerHTML = label + ' · <a href="' + run.html_url + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">#' + run.run_number + '</a> · ' + fmtAgo(run.updated_at);
+          btn.removeAttribute('aria-disabled');
+          spin.style.display = 'none';
+          btnLabel.textContent = btn.dataset.defaultLabel;
+        }
+        return running;
+      } catch(e){
+        statusText.textContent = 'Status unavailable';
+        btn.removeAttribute('aria-disabled');
+        spin.style.display = 'none';
+        btnLabel.textContent = btn.dataset.defaultLabel;
+        return false;
+      }
+    }
+
+    async function refreshAll(){
+      const cards = document.querySelectorAll('.card[data-workflow]');
+      const results = await Promise.all([...cards].map(refreshCard));
+      return results.some(Boolean);
+    }
+
+    async function loop(){
+      const anyRunning = await refreshAll();
+      // Poll every 20s while something is running, else every 2min
+      setTimeout(loop, anyRunning ? 20000 : 120000);
+    }
+
+    loop();
+  })();
+  </script>
 </body>
 </html>
