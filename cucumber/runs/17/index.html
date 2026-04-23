@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cucumber Report — Professional Test Automation</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥒%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0b0d12; --surface:#14171f; --surface-2:#1c212c; --border:rgba(255,255,255,0.08);
+      --text:#e6e8ee; --text-dim:#9aa0ab; --accent:#3fae20; --accent-2:#667eea;
+      --ok:#22c55e; --fail:#ef4444; --warn:#fbbf24;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+    body{background:radial-gradient(1200px 500px at 50% -100px, rgba(63,174,32,0.12), transparent 60%),var(--bg)}
+    .mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+    .container{max-width:1280px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:24px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand-logo{width:46px;height:46px;border-radius:11px;background:linear-gradient(135deg,#3fae20,#2a7e15);display:flex;align-items:center;justify-content:center;font-size:22px}
+    .brand h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
+    .brand .sub{font-size:12px;color:var(--text-dim);font-weight:500}
+    .brand a{color:var(--text-dim);text-decoration:none;border-bottom:1px dotted var(--text-dim)}
+    .brand a:hover{color:var(--text);border-bottom-color:var(--text)}
+    .kpis{display:flex;gap:8px;flex-wrap:wrap}
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;min-width:100px;text-align:center}
+    .kpi.ok{border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.06)}
+    .kpi.fail{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.06)}
+    .kpi.skip{border-color:rgba(251,191,36,0.3);background:rgba(251,191,36,0.06)}
+    .kpi strong{display:block;font-size:22px;font-weight:800;line-height:1}
+    .kpi span{display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+    .kpi.ok strong{color:var(--ok)}
+    .kpi.fail strong{color:var(--fail)}
+    .kpi.skip strong{color:var(--warn)}
+
+    .env-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:24px}
+    .env-section h2{margin:0 0 16px;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--accent)}
+    .env-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .env-item{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12.5px;min-width:0;overflow:hidden}
+    .env-item dt{color:var(--text-dim);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px}
+    .env-item dd{margin:0;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .env-item dd.long{white-space:normal;word-break:break-word}
+    .env-item dd a{color:var(--accent-2);text-decoration:none}
+    .env-item dd a:hover{text-decoration:underline}
+
+    .iframe-wrap{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+    .iframe-head{background:var(--surface);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+    .iframe-head h3{margin:0;font-size:13px;font-weight:700;color:var(--text)}
+    .iframe-head a{font-size:12px;color:var(--accent-2);text-decoration:none;font-weight:600}
+    .iframe-head a:hover{text-decoration:underline}
+    iframe{width:100%;height:80vh;border:0;display:block;background:#fff}
+
+    footer{text-align:center;padding:30px 0 10px;color:var(--text-dim);font-size:12px}
+    footer a{color:var(--text-dim);text-decoration:none;border-bottom:1px dotted var(--text-dim)}
+    footer a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-logo">🥒</div>
+        <div>
+          <h1>Cucumber · Selenium · Java — Test Report</h1>
+          <div class="sub">By <a href="https://professional-test-automation.com/?utm_source=cucumber_report" target="_blank">Professional Test Automation s.r.o.</a></div>
+        </div>
+      </div>
+      <div class="kpis" id="kpis">
+        <!-- will be filled via JS from STATS -->
+      </div>
+    </header>
+
+    <section class="env-section">
+      <h2>Environment</h2>
+      <dl class="env-grid">
+        <div class="env-item"><dt>Framework</dt><dd>Cucumber 7 · Selenium 4 · Java 21</dd></div>
+        <div class="env-item"><dt>Target</dt><dd><a href="https://www.saucedemo.com" target="_blank">saucedemo.com</a></dd></div>
+        <div class="env-item"><dt>Build tool</dt><dd>Maven 3</dd></div>
+        <div class="env-item"><dt>Test runner</dt><dd>JUnit Platform 1.11.4</dd></div>
+        <div class="env-item"><dt>Browser</dt><dd>Chrome (headless, latest)</dd></div>
+        <div class="env-item"><dt>Reporting</dt><dd>cucumber HTML + JSON</dd></div>
+        <div class="env-item"><dt>OS · Runner</dt><dd>Linux (X64) — GitHub Actions</dd></div>
+        <div class="env-item"><dt>Tag filter</dt><dd>@demo_login_valid or @demo_login_negative or @demo_cart or @demo_checkout_negative or @bug</dd></div>
+      </dl>
+    </section>
+
+    <section class="env-section">
+      <h2>Executor · CI run</h2>
+      <dl class="env-grid">
+        <div class="env-item"><dt>Executor</dt><dd>GitHub Actions</dd></div>
+        <div class="env-item"><dt>Workflow</dt><dd>Cucumber (Selenium + Java)</dd></div>
+        <div class="env-item"><dt>Run</dt><dd><a href="https://github.com/milacekmartin/professional-test-automation/actions/runs/24851172173" target="_blank">#17 ↗</a></dd></div>
+        <div class="env-item"><dt>Branch</dt><dd>main</dd></div>
+        <div class="env-item"><dt>Commit</dt><dd><a href="https://github.com/milacekmartin/professional-test-automation/commit/2a199afe4b3974eb0c9233ea3aa08755afeb59ab" target="_blank">2a199af</a></dd></div>
+        <div class="env-item"><dt>Commit message</dt><dd class="long">feat(cucumber): specific @demo_* tags — each demo key maps to exactly 1 scenario</dd></div>
+        <div class="env-item"><dt>Author</dt><dd>milacekmartin</dd></div>
+        <div class="env-item"><dt>Trigger</dt><dd>workflow_dispatch</dd></div>
+        <div class="env-item"><dt>Started</dt><dd>2026-04-23 18:14:29 UTC</dd></div>
+        <div class="env-item"><dt>Owner</dt><dd>Martin Miláček</dd></div>
+      </dl>
+    </section>
+
+    <div class="iframe-wrap">
+      <div class="iframe-head">
+        <h3>📋 Full Cucumber report</h3>
+        <a href="./report.html" target="_blank">Open in new tab ↗</a>
+      </div>
+      <iframe src="./report.html" title="Cucumber HTML report" loading="lazy"></iframe>
+    </div>
+
+    <footer>
+      Generated 2026-04-23 18:14:29 UTC by <a href="https://github.com/milacekmartin/professional-test-automation" target="_blank">milacekmartin/professional-test-automation</a> ·
+      <a href="https://professional-test-automation.com" target="_blank">Professional Test Automation</a>
+    </footer>
+  </div>
+
+  <script>
+    const STATS = {"total": 5, "passed": 4, "failed": 1, "skipped": 0, "durationMs": 39180};
+    const kpiEl = document.getElementById('kpis');
+    const dur = (STATS.durationMs/1000).toFixed(1);
+    kpiEl.innerHTML = `
+      <div class="kpi"><strong>${STATS.total}</strong><span>Scenarios</span></div>
+      <div class="kpi ok"><strong>${STATS.passed}</strong><span>Passed</span></div>
+      <div class="kpi fail"><strong>${STATS.failed}</strong><span>Failed</span></div>
+      <div class="kpi skip"><strong>${STATS.skipped}</strong><span>Skipped</span></div>
+      <div class="kpi"><strong>${dur}s</strong><span>Duration</span></div>
+    `;
+  </script>
+</body>
+</html>
