@@ -1,2 +1,5 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"broken","Thu Apr 23 12:41:56 UTC 2026","Thu Apr 23 12:41:56 UTC 2026","186","FE test — Shopping flow (add → checkout → order complete)","","","","","check product list",""
+"passed","Thu Apr 23 13:01:57 UTC 2026","Thu Apr 23 13:01:57 UTC 2026","176","FE test — Shopping flow (add → checkout → order complete)","","","","","check product list",""
+"passed","Thu Apr 23 13:01:57 UTC 2026","Thu Apr 23 13:01:58 UTC 2026","652","FE test — Shopping flow (add → checkout → order complete)","","","","","can add all available products to a cart",""
+"passed","Thu Apr 23 13:01:58 UTC 2026","Thu Apr 23 13:01:58 UTC 2026","109","FE test — Shopping flow (add → checkout → order complete)","","","","","can checkout a cart",""
+"passed","Thu Apr 23 13:01:58 UTC 2026","Thu Apr 23 13:01:59 UTC 2026","924","FE test — Shopping flow (add → checkout → order complete)","","","","","can finish an order",""
