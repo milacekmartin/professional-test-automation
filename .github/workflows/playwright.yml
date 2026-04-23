@@ -58,37 +58,43 @@ jobs:
         continue-on-error: true
         id: tests
 
-      - name: 📝 Write Allure environment.properties
+      - name: 📝 Write Allure environment.xml (UTF-8)
         if: always()
         working-directory: playwright
         run: |
           mkdir -p allure-results
           PW_VERSION=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo "1.x")
-          cat > allure-results/environment.properties <<EOF
-          Test.Framework=Playwright
-          Test.Framework.Version=$PW_VERSION
-          Test.Reporter=allure-playwright + built-in HTML
-          Test.Target.URL=https://www.saucedemo.com
-          Test.Target.Name=SauceDemo (Sauce Labs demo storefront)
-          Test.Environment=${{ github.event.inputs.environment || 'test' }}
-          Test.Browsers=Chromium + Firefox + WebKit
-          Test.Parallel.Mode=projects (multi-browser)
-          Test.Executor=GitHub Actions
-          Test.Executor.Runner=${{ runner.os }} (${{ runner.arch }})
-          Node.Version=$(node --version)
-          Yarn.Version=$(yarn --version)
-          CI.Branch=${{ github.ref_name }}
-          CI.Commit=${{ github.sha }}
-          CI.Commit.Short=$(echo ${{ github.sha }} | cut -c1-7)
-          CI.Commit.Message=$(git log -1 --pretty=%s | head -c 120)
-          CI.Commit.Author=${{ github.event.head_commit.author.name || github.actor }}
-          CI.Trigger=${{ github.event_name }}
-          CI.Workflow=${{ github.workflow }}
-          CI.Run.Number=#${{ github.run_number }}
-          CI.Run.Started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          Report.Owner=Martin Miláček <martin.milacek@professional-test-automation.com>
-          Report.Company=Professional Test Automation s.r.o.
-          Report.Repository=${{ github.server_url }}/${{ github.repository }}
+          COMMIT_MSG=$(git log -1 --pretty=%s | head -c 120 | python3 -c "import html,sys; print(html.escape(sys.stdin.read()))")
+          COMMIT_AUTHOR=$(echo "${{ github.event.head_commit.author.name || github.actor }}" | python3 -c "import html,sys; print(html.escape(sys.stdin.read()))")
+
+          cat > allure-results/environment.xml <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <environment>
+            <parameter><key>Test.Framework</key><value>Playwright</value></parameter>
+            <parameter><key>Test.Framework.Version</key><value>$PW_VERSION</value></parameter>
+            <parameter><key>Test.Reporter</key><value>allure-playwright + built-in HTML</value></parameter>
+            <parameter><key>Test.Target.URL</key><value>https://www.saucedemo.com</value></parameter>
+            <parameter><key>Test.Target.Name</key><value>SauceDemo (Sauce Labs demo storefront)</value></parameter>
+            <parameter><key>Test.Environment</key><value>${{ github.event.inputs.environment || 'test' }}</value></parameter>
+            <parameter><key>Test.Browsers</key><value>Chromium + Firefox + WebKit</value></parameter>
+            <parameter><key>Test.Parallel.Mode</key><value>projects (multi-browser)</value></parameter>
+            <parameter><key>Test.Executor</key><value>GitHub Actions</value></parameter>
+            <parameter><key>Test.Executor.Runner</key><value>${{ runner.os }} (${{ runner.arch }})</value></parameter>
+            <parameter><key>Node.Version</key><value>$(node --version)</value></parameter>
+            <parameter><key>Yarn.Version</key><value>$(yarn --version)</value></parameter>
+            <parameter><key>CI.Branch</key><value>${{ github.ref_name }}</value></parameter>
+            <parameter><key>CI.Commit</key><value>${{ github.sha }}</value></parameter>
+            <parameter><key>CI.Commit.Short</key><value>$(echo ${{ github.sha }} | cut -c1-7)</value></parameter>
+            <parameter><key>CI.Commit.Message</key><value>$COMMIT_MSG</value></parameter>
+            <parameter><key>CI.Commit.Author</key><value>$COMMIT_AUTHOR</value></parameter>
+            <parameter><key>CI.Trigger</key><value>${{ github.event_name }}</value></parameter>
+            <parameter><key>CI.Workflow</key><value>${{ github.workflow }}</value></parameter>
+            <parameter><key>CI.Run.Number</key><value>#${{ github.run_number }}</value></parameter>
+            <parameter><key>CI.Run.Started</key><value>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</value></parameter>
+            <parameter><key>Report.Owner</key><value>Martin Miláček &lt;martin.milacek@professional-test-automation.com&gt;</value></parameter>
+            <parameter><key>Report.Company</key><value>Professional Test Automation s.r.o.</value></parameter>
+            <parameter><key>Report.Repository</key><value>${{ github.server_url }}/${{ github.repository }}</value></parameter>
+          </environment>
           EOF
 
       - name: 📝 Write Allure executor.json

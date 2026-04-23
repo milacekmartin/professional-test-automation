@@ -19,20 +19,7 @@ describe('FE test — Shopping flow (add → checkout → order complete)', { pa
 
     before(() => { cy.login() })
 
-    beforeEach(() => {
-        cy.allure().epic('🛒 Shopping & Checkout')
-        cy.allure().feature('End-to-end purchase flow')
-        cy.allure().owner('Martin Miláček')
-        cy.allure().label('framework', 'Cypress')
-        cy.allure().label('layer', 'UI (E2E)')
-        cy.allure().label('target', 'saucedemo.com')
-        cy.allure().tms('PTA-E2E-001', 'https://github.com/milacekmartin/professional-test-automation/tree/main/cypress')
-    })
-
     it('check product list', () => {
-        cy.allure().severity('normal')
-        cy.allure().story('Product catalog is rendered correctly')
-        cy.allure().description('Verifies that 6 products are listed with name, description, price ($-prefixed) and "Add to cart" button.')
         cy
             .getByDataTest(helpers.commons.inventory.item)
             .then(($: any) => {
@@ -74,9 +61,6 @@ describe('FE test — Shopping flow (add → checkout → order complete)', { pa
     })
 
     it('can add all available products to a cart', () => {
-        cy.allure().severity('critical')
-        cy.allure().story('Add to cart')
-        cy.allure().description('Adds every visible product via "Add to cart" button, verifies the cart badge count matches, then opens the cart and checks each line item.')
         cy
             .getByDataTest(helpers.commons.inventory.item)
             .then(($: any) => {
@@ -142,9 +126,6 @@ describe('FE test — Shopping flow (add → checkout → order complete)', { pa
     })
 
     it('can checkout a cart', () => {
-        cy.allure().severity('critical')
-        cy.allure().story('Checkout — step one')
-        cy.allure().description('Clicks Checkout on the cart, verifies URL navigates to step-one and Cancel + Continue buttons are both visible.')
         cy
             .getByDataTest(helpers.commons.button.checkout)
             .click()
@@ -165,9 +146,6 @@ describe('FE test — Shopping flow (add → checkout → order complete)', { pa
     })
 
     it('can finish an order', () => {
-        cy.allure().severity('blocker')
-        cy.allure().story('Checkout — finish order')
-        cy.allure().description('Fills personal info (first/last name + postal code), validates step-two totals (subtotal + 8% tax = total) against each product price, clicks Finish, and asserts "Thank you for your order!" confirmation.')
         let total = 0.0
 
         cy
