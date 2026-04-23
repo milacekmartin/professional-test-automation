@@ -1,7 +1,10 @@
 package com.pta.pages;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -26,8 +29,14 @@ public class CartPage {
     }
 
     public void goToCheckout() {
-        // Wait for the checkout button to be present and clickable — the cart page
-        // may still be rendering after navigation.
-        wait.until(ExpectedConditions.elementToBeClickable(checkout)).click();
+        WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(checkout));
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
+        try {
+            btn.click();
+            wait.until(ExpectedConditions.urlContains("checkout-step-one.html"));
+        } catch (TimeoutException | org.openqa.selenium.ElementClickInterceptedException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", btn);
+            wait.until(ExpectedConditions.urlContains("checkout-step-one.html"));
+        }
     }
 }
