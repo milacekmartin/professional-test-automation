@@ -219,7 +219,7 @@ jobs:
                   <div class="env-item"><dt>Browser</dt><dd>Chrome (headless, latest)</dd></div>
                   <div class="env-item"><dt>Reporting</dt><dd>cucumber HTML + JSON</dd></div>
                   <div class="env-item"><dt>OS · Runner</dt><dd>${{ runner.os }} (${{ runner.arch }}) — GitHub Actions</dd></div>
-                  <div class="env-item"><dt>Tag filter</dt><dd>${{ github.event.inputs.tags || 'none (all scenarios)' }}</dd></div>
+                  <div class="env-item"><dt>Tag filter</dt><dd>${{ steps.tagfilter.outputs.filter || 'none (all scenarios)' }}</dd></div>
                 </dl>
               </section>
 
