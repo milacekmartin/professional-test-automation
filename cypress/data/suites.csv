@@ -1,6 +1,3 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Thu Apr 23 16:52:35 UTC 2026","Thu Apr 23 16:52:35 UTC 2026","143","Demo · Login — negative","","","","","empty username shows error",""
-"passed","Thu Apr 23 16:52:38 UTC 2026","Thu Apr 23 16:52:40 UTC 2026","1533","Demo · Checkout — negative (missing fields)","","","","","missing zip code is rejected",""
-"passed","Thu Apr 23 16:52:33 UTC 2026","Thu Apr 23 16:52:34 UTC 2026","1465","Demo · Login — negative","","","","","locked_out_user is rejected",""
-"passed","Thu Apr 23 16:52:34 UTC 2026","Thu Apr 23 16:52:35 UTC 2026","699","Demo · Login — negative","","","","","wrong password is rejected",""
-"passed","Thu Apr 23 16:52:37 UTC 2026","Thu Apr 23 16:52:38 UTC 2026","1713","Demo · Checkout — negative (missing fields)","","","","","missing last name is rejected",""
+"passed","Thu Apr 23 16:57:44 UTC 2026","Thu Apr 23 16:57:46 UTC 2026","1875","Demo · Cart + checkout — positive","","","","","completes a full checkout",""
+"passed","Thu Apr 23 16:57:43 UTC 2026","Thu Apr 23 16:57:44 UTC 2026","1593","Demo · Cart + checkout — positive","","","","","adds Sauce Labs Backpack to cart",""
