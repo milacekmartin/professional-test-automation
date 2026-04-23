@@ -12,7 +12,11 @@ on:
   workflow_dispatch:
     inputs:
       tags:
-        description: "Cucumber tag filter (e.g. @smoke, @negative)"
+        description: "Cucumber tag filter (raw; overrides `tests` when set)"
+        required: false
+        default: ""
+      tests:
+        description: "Comma-separated demo keys (login_valid,login_negative,cart,checkout_negative,bug). Empty = full default suite."
         required: false
         default: ""
 
@@ -40,10 +44,41 @@ jobs:
         with:
           chrome-version: stable
 
+      - name: 🧭 Resolve Cucumber tag filter from selected demo tests
+        id: tagfilter
+        run: |
+          TAGS="${{ github.event.inputs.tags }}"
+          KEYS="${{ github.event.inputs.tests }}"
+          if [ -n "$TAGS" ]; then
+            echo "filter=$TAGS" >> "$GITHUB_OUTPUT"
+            echo "Using raw tag filter: $TAGS"
+            exit 0
+          fi
+          if [ -z "$KEYS" ]; then
+            echo "filter=" >> "$GITHUB_OUTPUT"
+            echo "No demo filter — running full default suite."
+            exit 0
+          fi
+          declare -A MAP
+          MAP[login_valid]="(@login and @positive)"
+          MAP[login_negative]="(@login and @negative)"
+          MAP[cart]="(@checkout and @positive)"
+          MAP[checkout_negative]="(@checkout and @negative)"
+          MAP[bug]="@bug"
+          IFS=',' read -ra TOKENS <<< "$KEYS"
+          EXPR=""
+          for key in "${TOKENS[@]}"; do
+            key=$(echo "$key" | xargs)
+            v="${MAP[$key]:-}"
+            if [ -n "$v" ]; then EXPR+="${EXPR:+ or }$v"; fi
+          done
+          echo "filter=$EXPR" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag expression: $EXPR"
+
       - name: 🧪 Run Cucumber tests
         run: |
-          if [ -n "${{ github.event.inputs.tags }}" ]; then
-            mvn -B test -Dcucumber.filter.tags="${{ github.event.inputs.tags }}"
+          if [ -n "${{ steps.tagfilter.outputs.filter }}" ]; then
+            mvn -B test -Dcucumber.filter.tags="${{ steps.tagfilter.outputs.filter }}"
           else
             mvn -B test
           fi

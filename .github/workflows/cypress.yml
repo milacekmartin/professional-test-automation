@@ -18,6 +18,10 @@ on:
         description: "Config name in cypress/configs (without .json)"
         required: false
         default: "test"
+      tests:
+        description: "Comma-separated demo keys (login_valid,login_negative,cart,checkout_negative,bug). Empty = full default suite."
+        required: false
+        default: ""
 
 jobs:
   test:
@@ -46,11 +50,36 @@ jobs:
       - name: 📦 Install fs-extra (cypress config dependency)
         run: yarn add -D fs-extra
 
+      - name: 🧭 Resolve spec filter from selected demo tests
+        id: specs
+        run: |
+          KEYS="${{ github.event.inputs.tests }}"
+          if [ -z "$KEYS" ]; then
+            echo "spec=" >> "$GITHUB_OUTPUT"
+            echo "No demo filter — running full default suite."
+            exit 0
+          fi
+          declare -A MAP
+          MAP[login_valid]="cypress/e2e/demo/login-valid.cy.ts"
+          MAP[login_negative]="cypress/e2e/demo/login-negative.cy.ts"
+          MAP[cart]="cypress/e2e/demo/cart.cy.ts"
+          MAP[checkout_negative]="cypress/e2e/demo/checkout-negative.cy.ts"
+          MAP[bug]="cypress/e2e/demo/bug.cy.ts"
+          IFS=',' read -ra TOKENS <<< "$KEYS"
+          SPECS=""
+          for key in "${TOKENS[@]}"; do
+            key=$(echo "$key" | xargs)
+            path="${MAP[$key]:-}"
+            if [ -n "$path" ]; then SPECS+="${SPECS:+,}$path"; fi
+          done
+          echo "spec=$SPECS" >> "$GITHUB_OUTPUT"
+          echo "Resolved spec filter: $SPECS"
+
       - name: 🧪 Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           install: false
-          command: yarn cy:${{ github.event.inputs.config || 'test' }}:run
+          command: yarn cy:${{ github.event.inputs.config || 'test' }}:run${{ steps.specs.outputs.spec != '' && format(' --spec ''{0}''', steps.specs.outputs.spec) || '' }}
           browser: chrome
         continue-on-error: true
         id: tests

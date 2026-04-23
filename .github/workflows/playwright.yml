@@ -15,6 +15,10 @@ on:
         description: "Target environment (dev/test/prod)"
         required: false
         default: "test"
+      tests:
+        description: "Comma-separated demo keys (login_valid,login_negative,cart,checkout_negative,bug). Empty = full default suite."
+        required: false
+        default: ""
 
 jobs:
   test:
@@ -51,10 +55,41 @@ jobs:
       - name: 🌐 Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: 🧭 Resolve spec filter from selected demo tests
+        id: specs
+        working-directory: playwright
+        run: |
+          KEYS="${{ github.event.inputs.tests }}"
+          if [ -z "$KEYS" ]; then
+            echo "spec=" >> "$GITHUB_OUTPUT"
+            echo "No demo filter — running full default suite."
+            exit 0
+          fi
+          declare -A MAP
+          MAP[login_valid]="tests/demo/login-valid.spec.ts"
+          MAP[login_negative]="tests/demo/login-negative.spec.ts"
+          MAP[cart]="tests/demo/cart.spec.ts"
+          MAP[checkout_negative]="tests/demo/checkout-negative.spec.ts"
+          MAP[bug]="tests/demo/bug.spec.ts"
+          IFS=',' read -ra TOKENS <<< "$KEYS"
+          SPECS=""
+          for key in "${TOKENS[@]}"; do
+            key=$(echo "$key" | xargs)
+            path="${MAP[$key]:-}"
+            if [ -n "$path" ]; then SPECS+="${SPECS:+ }$path"; fi
+          done
+          echo "spec=$SPECS" >> "$GITHUB_OUTPUT"
+          echo "Resolved spec filter: $SPECS"
+
       - name: 🧪 Run Playwright tests
         env:
           ENV: ${{ github.event.inputs.environment || 'test' }}
-        run: yarn pw:test
+        run: |
+          if [ -n "${{ steps.specs.outputs.spec }}" ]; then
+            npx playwright test ${{ steps.specs.outputs.spec }}
+          else
+            yarn pw:test
+          fi
         continue-on-error: true
         id: tests
 
