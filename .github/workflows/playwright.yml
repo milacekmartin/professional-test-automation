@@ -24,6 +24,10 @@ jobs:
       run:
         working-directory: playwright
 
+    env:
+      CI_COMMIT_MSG: ${{ github.event.head_commit.message }}
+      GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
@@ -34,6 +38,12 @@ jobs:
           node-version: 20
           cache: "yarn"
           cache-dependency-path: playwright/yarn.lock
+
+      - name: ☕ Set up Java (for Allure CLI)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: 📦 Install dependencies
         run: yarn install --frozen-lockfile
@@ -48,14 +58,105 @@ jobs:
         continue-on-error: true
         id: tests
 
-      - name: 📊 Upload Playwright HTML report
+      - name: 📝 Write Allure environment.properties
+        if: always()
+        working-directory: playwright
+        run: |
+          mkdir -p allure-results
+          PW_VERSION=$(node -p "require('@playwright/test/package.json').version" 2>/dev/null || echo "1.x")
+          cat > allure-results/environment.properties <<EOF
+          Test.Framework=Playwright
+          Test.Framework.Version=$PW_VERSION
+          Test.Reporter=allure-playwright + built-in HTML
+          Test.Target.URL=https://www.saucedemo.com
+          Test.Target.Name=SauceDemo (Sauce Labs demo storefront)
+          Test.Environment=${{ github.event.inputs.environment || 'test' }}
+          Test.Browsers=Chromium + Firefox + WebKit
+          Test.Parallel.Mode=projects (multi-browser)
+          Test.Executor=GitHub Actions
+          Test.Executor.Runner=${{ runner.os }} (${{ runner.arch }})
+          Node.Version=$(node --version)
+          Yarn.Version=$(yarn --version)
+          CI.Branch=${{ github.ref_name }}
+          CI.Commit=${{ github.sha }}
+          CI.Commit.Short=$(echo ${{ github.sha }} | cut -c1-7)
+          CI.Commit.Message=$(git log -1 --pretty=%s | head -c 120)
+          CI.Commit.Author=${{ github.event.head_commit.author.name || github.actor }}
+          CI.Trigger=${{ github.event_name }}
+          CI.Workflow=${{ github.workflow }}
+          CI.Run.Number=#${{ github.run_number }}
+          CI.Run.Started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          Report.Owner=Martin Miláček <martin.milacek@professional-test-automation.com>
+          Report.Company=Professional Test Automation s.r.o.
+          Report.Repository=${{ github.server_url }}/${{ github.repository }}
+          EOF
+
+      - name: 📝 Write Allure executor.json
+        if: always()
+        working-directory: playwright
+        run: |
+          mkdir -p allure-results
+          cat > allure-results/executor.json <<EOF
+          {
+            "name": "GitHub Actions",
+            "type": "github",
+            "url": "${{ github.server_url }}/${{ github.repository }}/actions",
+            "buildOrder": ${{ github.run_number }},
+            "buildName": "Playwright Tests #${{ github.run_number }}",
+            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "reportName": "Playwright — Allure Report",
+            "reportUrl": "https://milacekmartin.github.io/professional-test-automation/playwright-allure/"
+          }
+          EOF
+
+      - name: 📝 Write Allure categories.json
+        if: always()
+        working-directory: playwright
+        run: |
+          mkdir -p allure-results
+          cat > allure-results/categories.json <<'EOF'
+          [
+            { "name": "🔴 Product defects (real bugs found)", "matchedStatuses": ["failed"], "messageRegex": ".*Error: expect.*|.*Received.*Expected.*" },
+            { "name": "🟡 Test infrastructure issues",        "matchedStatuses": ["broken"], "messageRegex": ".*ENOTFOUND.*|.*ECONNREFUSED.*|.*browser.* closed.*" },
+            { "name": "🔵 Environment issues",                "matchedStatuses": ["broken"], "messageRegex": ".*503.*|.*502.*|.*504.*" },
+            { "name": "🟣 Flaky / timing issues",             "matchedStatuses": ["failed","broken"], "messageRegex": ".*Timeout.*|.*TimeoutError.*|.*retried.*" },
+            { "name": "⚪ Skipped",                           "matchedStatuses": ["skipped"] }
+          ]
+          EOF
+
+      - name: 📊 Restore Allure history (trend charts)
+        if: always()
+        working-directory: playwright
+        run: |
+          mkdir -p allure-results/history
+          for f in history.json categories-trend.json duration-trend.json history-trend.json retry-trend.json; do
+            curl -sSL -o "allure-results/history/$f" \
+              "https://milacekmartin.github.io/professional-test-automation/playwright-allure/history/$f" 2>/dev/null || true
+            [ -s "allure-results/history/$f" ] || rm -f "allure-results/history/$f"
+          done
+
+      - name: 📊 Generate Allure report
+        if: always()
+        working-directory: playwright
+        run: |
+          npx -y allure-commandline generate allure-results --clean -o allure-report || true
+          [ -d allure-report/history ] && cp -r allure-report/history allure-results/history || true
+
+      - name: 📦 Upload Playwright HTML report artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-html-report
           path: playwright/playwright-report
 
-      - name: 🚀 Deploy Playwright Report to GitHub Pages
+      - name: 📦 Upload Playwright Allure report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-allure-report
+          path: playwright/allure-report
+
+      - name: 🚀 Deploy Playwright HTML report
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -66,7 +167,20 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs(playwright): publish report [skip ci]'
+          commit_message: 'docs(playwright): publish HTML report #${{ github.run_number }} [skip ci]'
+
+      - name: 🚀 Deploy Playwright Allure report
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright/allure-report
+          publish_branch: gh-pages
+          destination_dir: playwright-allure
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(playwright): publish Allure report #${{ github.run_number }} [skip ci]'
 
       - name: ❌ Fail the workflow if tests failed
         if: steps.tests.outcome != 'success'

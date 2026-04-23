@@ -29,7 +29,36 @@
 import { defineConfig } from '@playwright/test'
 import { baseUrl } from './env'
 
+// Build rich metadata — renders at the top of the Playwright HTML report
+// and is embedded into the Allure report executor/environment widgets.
+const gh = (k: string, d = '—') => process.env[k] || d
+const commitShort = gh('GITHUB_SHA').slice(0, 7) || '—'
+
+const METADATA = {
+    'Framework': 'Playwright',
+    'Framework version': gh('PLAYWRIGHT_VERSION', require('@playwright/test/package.json').version),
+    'Target application': 'saucedemo.com (Sauce Labs demo storefront)',
+    'Base URL': baseUrl,
+    'Browsers': 'Chromium + Firefox + WebKit',
+    'Owner': 'Martin Miláček',
+    'Company': 'Professional Test Automation s.r.o.',
+    'Node.js': process.version,
+    'Executor': process.env.CI ? 'GitHub Actions' : 'Local',
+    'OS': `${process.platform} (${process.arch})`,
+    'CI · Branch': gh('GITHUB_REF_NAME'),
+    'CI · Commit': commitShort,
+    'CI · Commit message': gh('CI_COMMIT_MSG').slice(0, 120),
+    'CI · Commit author': gh('GITHUB_ACTOR'),
+    'CI · Trigger': gh('GITHUB_EVENT_NAME'),
+    'CI · Workflow': gh('GITHUB_WORKFLOW'),
+    'CI · Run #': gh('GITHUB_RUN_NUMBER'),
+    'CI · Run URL': gh('GITHUB_RUN_URL'),
+    'Started': new Date().toISOString(),
+}
+
 export default defineConfig({
+
+    metadata: METADATA,
 
     /**
      * Folder containing all test files.

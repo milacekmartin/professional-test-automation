@@ -51,14 +51,122 @@ jobs:
         with:
           install: false
           command: yarn cy:${{ github.event.inputs.config || 'test' }}:run
+          browser: chrome
         continue-on-error: true
         id: tests
+
+      # ------------------------------------------------------------------
+      # ENRICH ALLURE WITH METADATA
+      #   - environment.properties  → shown in "Environment" widget
+      #   - executor.json           → shown in "Executor" widget
+      #   - categories.json         → custom defect categories
+      #   - history/                → preserved between runs for trend charts
+      # ------------------------------------------------------------------
+      - name: 📝 Write Allure environment.properties
+        if: always()
+        run: |
+          mkdir -p allure-results
+          CHROME_VERSION=$(google-chrome --version 2>/dev/null | head -1 || echo "Chrome (headless)")
+          cat > allure-results/environment.properties <<EOF
+          Test.Framework=Cypress
+          Test.Framework.Version=$(node -p "require('./package.json').devDependencies.cypress || '15.x'")
+          Test.Reporter=allure-cypress
+          Test.Target.URL=https://www.saucedemo.com
+          Test.Target.Name=SauceDemo (Sauce Labs demo storefront)
+          Test.Environment=${{ github.event.inputs.config || 'test' }}
+          Test.Browser=$CHROME_VERSION
+          Test.Browser.Mode=headless
+          Test.Executor=GitHub Actions
+          Test.Executor.Runner=${{ runner.os }} (${{ runner.arch }})
+          Node.Version=$(node --version)
+          Yarn.Version=$(yarn --version)
+          CI.Branch=${{ github.ref_name }}
+          CI.Commit=${{ github.sha }}
+          CI.Commit.Short=$(echo ${{ github.sha }} | cut -c1-7)
+          CI.Commit.Message=$(git log -1 --pretty=%s | head -c 120)
+          CI.Commit.Author=${{ github.event.head_commit.author.name || github.actor }}
+          CI.Trigger=${{ github.event_name }}
+          CI.Workflow=${{ github.workflow }}
+          CI.Run.Number=#${{ github.run_number }}
+          CI.Run.Started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          Report.Owner=Martin Miláček <martin.milacek@professional-test-automation.com>
+          Report.Company=Professional Test Automation s.r.o.
+          Report.Repository=${{ github.server_url }}/${{ github.repository }}
+          EOF
+          echo "--- environment.properties ---"
+          cat allure-results/environment.properties
+
+      - name: 📝 Write Allure executor.json
+        if: always()
+        run: |
+          mkdir -p allure-results
+          cat > allure-results/executor.json <<EOF
+          {
+            "name": "GitHub Actions",
+            "type": "github",
+            "url": "${{ github.server_url }}/${{ github.repository }}/actions",
+            "buildOrder": ${{ github.run_number }},
+            "buildName": "Cypress Tests #${{ github.run_number }}",
+            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "reportName": "Cypress — Allure Report",
+            "reportUrl": "https://milacekmartin.github.io/professional-test-automation/cypress/"
+          }
+          EOF
+
+      - name: 📝 Write Allure categories.json
+        if: always()
+        run: |
+          mkdir -p allure-results
+          cat > allure-results/categories.json <<'EOF'
+          [
+            {
+              "name": "🔴 Product defects (real bugs found)",
+              "matchedStatuses": ["failed"],
+              "messageRegex": ".*AssertionError.*|.*expect.*|.*Expected.*"
+            },
+            {
+              "name": "🟡 Test infrastructure issues",
+              "matchedStatuses": ["broken"],
+              "messageRegex": ".*ENOTFOUND.*|.*ECONNREFUSED.*|.*timeout.*|.*Failed to fetch.*"
+            },
+            {
+              "name": "🔵 Environment issues (staging down, etc.)",
+              "matchedStatuses": ["broken"],
+              "messageRegex": ".*503.*|.*502.*|.*504.*|.*Service Unavailable.*"
+            },
+            {
+              "name": "🟣 Flaky / timing issues",
+              "matchedStatuses": ["failed", "broken"],
+              "messageRegex": ".*retried.*|.*Timed out retrying.*|.*element detached.*"
+            },
+            {
+              "name": "⚪ Skipped / pending",
+              "matchedStatuses": ["skipped"]
+            }
+          ]
+          EOF
+
+      - name: 📊 Restore Allure history (for trend charts)
+        if: always()
+        run: |
+          mkdir -p allure-results/history
+          curl -sSL -o /tmp/prev-report.zip \
+            "https://milacekmartin.github.io/professional-test-automation/cypress/history/history.json" 2>/dev/null || true
+          # Try downloading individual history files (they're small JSON)
+          for f in history.json categories-trend.json duration-trend.json history-trend.json retry-trend.json; do
+            curl -sSL -o "allure-results/history/$f" \
+              "https://milacekmartin.github.io/professional-test-automation/cypress/history/$f" 2>/dev/null || true
+            [ -s "allure-results/history/$f" ] || rm -f "allure-results/history/$f"
+          done
+          echo "Restored history files:" && ls -la allure-results/history/ || true
 
       - name: 📊 Generate Allure report
         if: always()
         run: |
           npx allure-commandline generate allure-results --clean -o allure/report || true
-          ls -la allure/report/ 2>&1 | head
+          # Preserve history inside report for next run
+          [ -d allure/report/history ] && cp -r allure/report/history allure-results/history || true
+          ls -la allure/report/ 2>&1 | head -20
 
       - name: 📦 Upload Allure report artifact
         uses: actions/upload-artifact@v4
@@ -78,7 +186,7 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs(cypress): publish Allure report [skip ci]'
+          commit_message: 'docs(cypress): publish Allure report #${{ github.run_number }} [skip ci]'
 
       - name: ❌ Fail the workflow if tests failed
         if: steps.tests.outcome != 'success'
