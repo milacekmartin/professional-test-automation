@@ -1,0 +1,2 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"failed","Thu Apr 23 17:08:36 UTC 2026","Thu Apr 23 17:08:42 UTC 2026","5778","Demo · Intentional bug","","","","","finds a regression (expected-to-fail demo)",""
