@@ -1,8 +1,6 @@
 package com.pta.pages;
 
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -30,13 +28,7 @@ public class CartPage {
 
     public void goToCheckout() {
         WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(checkout));
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
-        try {
-            btn.click();
-            wait.until(ExpectedConditions.urlContains("checkout-step-one.html"));
-        } catch (TimeoutException | org.openqa.selenium.ElementClickInterceptedException e) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", btn);
-            wait.until(ExpectedConditions.urlContains("checkout-step-one.html"));
-        }
+        SafeClick.clickUntil(driver, btn, () -> driver.getCurrentUrl().contains("checkout-step-one.html"));
+        wait.until(ExpectedConditions.urlContains("checkout-step-one.html"));
     }
 }

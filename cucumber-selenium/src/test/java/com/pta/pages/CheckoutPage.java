@@ -39,11 +39,16 @@ public class CheckoutPage {
         pc.clear();
         if (zip != null && !zip.isEmpty()) pc.sendKeys(zip);
 
-        driver.findElement(continueBtn).click();
+        WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(continueBtn));
+        SafeClick.clickUntil(driver, btn,
+                () -> driver.getCurrentUrl().contains("checkout-step-two.html")
+                        || !driver.findElements(error).isEmpty());
     }
 
     public void finish() {
-        wait.until(ExpectedConditions.elementToBeClickable(finishBtn)).click();
+        WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(finishBtn));
+        SafeClick.clickUntil(driver, btn, () -> driver.getCurrentUrl().contains("checkout-complete.html"));
+        wait.until(ExpectedConditions.urlContains("checkout-complete.html"));
     }
 
     public String errorMessage() {

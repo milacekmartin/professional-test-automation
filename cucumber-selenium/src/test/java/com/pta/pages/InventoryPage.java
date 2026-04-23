@@ -1,8 +1,6 @@
 package com.pta.pages;
 
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -35,15 +33,15 @@ public class InventoryPage {
     }
 
     public void addToCart(String productName) {
-        // Wait for the inventory grid to render before trying to click a specific item
         wait.until(ExpectedConditions.visibilityOfElementLocated(title));
         String xpath = String.format(
                 "//div[contains(@class,'inventory_item')]" +
                 "[.//div[contains(@class,'inventory_item_name') and normalize-space()='%s']]" +
                 "//button[contains(@class,'btn_inventory')]",
                 productName);
+        int before = cartCount();
         WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
-        btn.click();
+        SafeClick.clickUntil(driver, btn, () -> cartCount() > before);
     }
 
     public int cartCount() {
@@ -53,13 +51,7 @@ public class InventoryPage {
 
     public void openCart() {
         WebElement link = wait.until(ExpectedConditions.elementToBeClickable(cartLink));
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", link);
-        try {
-            link.click();
-            wait.until(ExpectedConditions.urlContains("cart.html"));
-        } catch (TimeoutException | org.openqa.selenium.ElementClickInterceptedException e) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", link);
-            wait.until(ExpectedConditions.urlContains("cart.html"));
-        }
+        SafeClick.clickUntil(driver, link, () -> driver.getCurrentUrl().contains("cart.html"));
+        wait.until(ExpectedConditions.urlContains("cart.html"));
     }
 }
