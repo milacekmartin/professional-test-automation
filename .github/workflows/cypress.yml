@@ -1,0 +1,85 @@
+name: Cypress Tests
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'cypress/**'
+      - 'cypress.config.ts'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/cypress.yml'
+  pull_request:
+    paths:
+      - 'cypress/**'
+  workflow_dispatch:
+    inputs:
+      config:
+        description: "Config name in cypress/configs (without .json)"
+        required: false
+        default: "test"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "yarn"
+
+      - name: ☕ Set up Java (for Allure CLI)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 📦 Install dependencies
+        run: yarn install --frozen-lockfile
+        continue-on-error: true
+
+      - name: 📦 Install fs-extra (cypress config dependency)
+        run: yarn add -D fs-extra
+
+      - name: 🧪 Run Cypress tests
+        uses: cypress-io/github-action@v6
+        with:
+          install: false
+          command: yarn cy:${{ github.event.inputs.config || 'test' }}:run
+        continue-on-error: true
+        id: tests
+
+      - name: 📊 Generate Allure report
+        if: always()
+        run: |
+          npx allure-commandline generate allure-results --clean -o allure/report || true
+          ls -la allure/report/ 2>&1 | head
+
+      - name: 📦 Upload Allure report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-allure-report
+          path: allure/report/
+
+      - name: 🚀 Deploy Cypress Allure report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure/report
+          publish_branch: gh-pages
+          destination_dir: cypress
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(cypress): publish Allure report [skip ci]'
+
+      - name: ❌ Fail the workflow if tests failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1

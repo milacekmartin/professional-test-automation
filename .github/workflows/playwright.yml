@@ -3,17 +3,18 @@ name: Playwright Tests
 on:
   push:
     branches: ["main"]
+    paths:
+      - 'playwright/**'
+      - '.github/workflows/playwright.yml'
   pull_request:
+    paths:
+      - 'playwright/**'
   workflow_dispatch:
     inputs:
       environment:
-        description: "Cieľové prostredie (napr. dev/test/prod)"
+        description: "Target environment (dev/test/prod)"
         required: false
         default: "test"
-      run_deploy:
-        description: "Zverejniť report na GitHub Pages?"
-        required: false
-        default: "true"
 
 jobs:
   test:
@@ -44,6 +45,8 @@ jobs:
         env:
           ENV: ${{ github.event.inputs.environment || 'test' }}
         run: yarn pw:test
+        continue-on-error: true
+        id: tests
 
       - name: 📊 Upload Playwright HTML report
         uses: actions/upload-artifact@v4
@@ -53,8 +56,18 @@ jobs:
           path: playwright/playwright-report
 
       - name: 🚀 Deploy Playwright Report to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: playwright/playwright-report
           publish_branch: gh-pages
+          destination_dir: playwright
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(playwright): publish report [skip ci]'
+
+      - name: ❌ Fail the workflow if tests failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1

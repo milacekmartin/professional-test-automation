@@ -1,0 +1,28 @@
+name: Publish landing page
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'docs/landing/**'
+      - '.github/workflows/pages-landing.yml'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy landing to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/landing
+          publish_branch: gh-pages
+          destination_dir: ''
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs: update landing page [skip ci]'

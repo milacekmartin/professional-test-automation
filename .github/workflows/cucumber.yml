@@ -1,0 +1,75 @@
+name: Cucumber (Selenium + Java)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'cucumber-selenium/**'
+      - '.github/workflows/cucumber.yml'
+  pull_request:
+    paths:
+      - 'cucumber-selenium/**'
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "Cucumber tag filter (e.g. @smoke, @negative)"
+        required: false
+        default: ""
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cucumber-selenium
+
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: 🌐 Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: 🧪 Run Cucumber tests
+        run: |
+          if [ -n "${{ github.event.inputs.tags }}" ]; then
+            mvn -B test -Dcucumber.filter.tags="${{ github.event.inputs.tags }}"
+          else
+            mvn -B test
+          fi
+        continue-on-error: true
+        id: tests
+
+      - name: 📊 Upload Cucumber HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cucumber-report
+          path: cucumber-selenium/target/cucumber-report/
+
+      - name: 🚀 Deploy Cucumber report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: cucumber-selenium/target/cucumber-report
+          publish_branch: gh-pages
+          destination_dir: cucumber
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(cucumber): publish report [skip ci]'
+
+      - name: ❌ Fail the workflow if tests failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1

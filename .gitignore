@@ -7,3 +7,11 @@ screenshots
 **/test-results
 
 **/playwright-report
+
+# Maven (cucumber-selenium)
+**/target/
+**/.idea/
+**/.project
+**/.classpath
+**/.settings/
+*.iml
