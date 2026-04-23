@@ -1,1 +1,1 @@
-[{"uid":"f8941ebf3d720f27","name":"completes a full checkout","time":{"start":1776963464743,"stop":1776963466618,"duration":1875},"status":"passed","severity":"normal"},{"uid":"4316f93a66841bc2","name":"adds Sauce Labs Backpack to cart","time":{"start":1776963463120,"stop":1776963464713,"duration":1593},"status":"passed","severity":"normal"}]
+[{"uid":"c6e14117a74fad26","name":"finds a regression (expected-to-fail demo)","time":{"start":1776964116299,"stop":1776964122077,"duration":5778},"status":"failed","severity":"normal"}]

@@ -1,3 +1,2 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Thu Apr 23 16:57:44 UTC 2026","Thu Apr 23 16:57:46 UTC 2026","1875","Demo · Cart + checkout — positive","","","","","completes a full checkout",""
-"passed","Thu Apr 23 16:57:43 UTC 2026","Thu Apr 23 16:57:44 UTC 2026","1593","Demo · Cart + checkout — positive","","","","","adds Sauce Labs Backpack to cart",""
+"failed","Thu Apr 23 17:08:36 UTC 2026","Thu Apr 23 17:08:42 UTC 2026","5778","Demo · Intentional bug","","","","","finds a regression (expected-to-fail demo)",""
