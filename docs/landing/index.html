@@ -200,14 +200,43 @@
   <script>
   (function(){
     const REPO = 'milacekmartin/professional-test-automation';
-    const API  = 'https://api.github.com/repos/' + REPO + '/actions/workflows/';
+    const BASE = 'https://api.github.com/repos/' + REPO;
+    const H = {Accept:'application/vnd.github+json'};
+    const state = {}; // per-workflow stopwatch state
 
+    function fmtDur(s){
+      s = Math.max(0, Math.floor(s));
+      if (s < 60) return s + 's';
+      const m = Math.floor(s/60), r = s%60;
+      return m + 'm ' + (r<10?'0':'') + r + 's';
+    }
     function fmtAgo(iso){
-      const d = new Date(iso), now = Date.now(), diff = (now - d.getTime())/1000;
+      const diff = (Date.now() - new Date(iso).getTime())/1000;
       if (diff < 60) return 'just now';
       if (diff < 3600) return Math.floor(diff/60) + 'm ago';
       if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
       return Math.floor(diff/86400) + 'd ago';
+    }
+    async function gh(path){
+      const r = await fetch(BASE + path + (path.includes('?')?'&':'?') + '_=' + Date.now(), {headers:H});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }
+
+    async function currentStep(runId){
+      try {
+        const data = await gh('/actions/runs/' + runId + '/jobs');
+        const job = (data.jobs || [])[0];
+        if (!job) return null;
+        const running = (job.steps || []).find(s => s.status === 'in_progress');
+        const completed = (job.steps || []).filter(s => s.status === 'completed').length;
+        const total = (job.steps || []).length;
+        return {
+          step: running ? running.name : (job.status === 'completed' ? 'finishing' : 'queued'),
+          completed, total,
+          jobStarted: job.started_at
+        };
+      } catch { return null; }
     }
 
     async function refreshCard(card){
@@ -219,28 +248,36 @@
       const spin = btn.querySelector('.spin');
 
       try{
-        const r = await fetch(API + wf + '/runs?per_page=1&branch=main', {headers:{Accept:'application/vnd.github+json'}});
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const data = await r.json();
+        const data = await gh('/actions/workflows/' + wf + '/runs?per_page=1&branch=main');
         const run = data.workflow_runs && data.workflow_runs[0];
-        if (!run){ statusText.textContent = 'No runs yet'; return; }
+        if (!run){ statusText.textContent = 'No runs yet'; return false; }
 
         const running = run.status !== 'completed';
         const ok = run.conclusion === 'success';
+        const runUrl = run.html_url;
 
         if (running){
-          statusDot.className = 'status-dot run';
-          statusText.innerHTML = 'Running · <a href="' + run.html_url + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">run #' + run.run_number + '</a>';
           btn.setAttribute('aria-disabled','true');
           spin.style.display = 'inline-block';
           btnLabel.textContent = 'Test running…';
+          statusDot.className = 'status-dot run';
+          const info = await currentStep(run.id);
+          const startedAt = info && info.jobStarted ? new Date(info.jobStarted).getTime() : new Date(run.run_started_at || run.created_at).getTime();
+          state[wf] = {startedAt, run, info};
+          renderRunning(card, state[wf]);
         } else {
-          statusDot.className = ok ? 'status-dot' : 'status-dot fail';
-          const label = ok ? 'Passed' : (run.conclusion || 'Failed');
-          statusText.innerHTML = label + ' · <a href="' + run.html_url + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">#' + run.run_number + '</a> · ' + fmtAgo(run.updated_at);
+          delete state[wf];
           btn.removeAttribute('aria-disabled');
           spin.style.display = 'none';
           btnLabel.textContent = btn.dataset.defaultLabel;
+          statusDot.className = ok ? 'status-dot' : 'status-dot fail';
+          const dur = Math.round((new Date(run.updated_at) - new Date(run.run_started_at || run.created_at))/1000);
+          const label = ok ? 'Passed' : (run.conclusion || 'Failed');
+          statusText.innerHTML =
+            label +
+            ' · <a href="'+runUrl+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">#'+run.run_number+'</a>' +
+            ' · ' + fmtDur(dur) +
+            ' · ' + fmtAgo(run.updated_at);
         }
         return running;
       } catch(e){
@@ -252,6 +289,26 @@
       }
     }
 
+    function renderRunning(card, s){
+      const statusText = card.querySelector('.status-text');
+      const elapsed = (Date.now() - s.startedAt) / 1000;
+      const stepLabel = s.info ? s.info.step : 'starting…';
+      const progress = s.info && s.info.total ? ' · step ' + s.info.completed + '/' + s.info.total : '';
+      statusText.innerHTML =
+        '<strong style="color:#f59e0b">Running</strong>' +
+        ' · <a href="'+s.run.html_url+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">#'+s.run.run_number+'</a>' +
+        ' · ' + stepLabel +
+        progress +
+        ' · <span class="mono">' + fmtDur(elapsed) + '</span>';
+    }
+
+    function tick(){
+      document.querySelectorAll('.card[data-workflow]').forEach(card => {
+        const wf = card.dataset.workflow;
+        if (state[wf]) renderRunning(card, state[wf]);
+      });
+    }
+
     async function refreshAll(){
       const cards = document.querySelectorAll('.card[data-workflow]');
       const results = await Promise.all([...cards].map(refreshCard));
@@ -260,11 +317,11 @@
 
     async function loop(){
       const anyRunning = await refreshAll();
-      // Poll every 20s while something is running, else every 2min
-      setTimeout(loop, anyRunning ? 20000 : 120000);
+      setTimeout(loop, anyRunning ? 5000 : 60000);
     }
 
     loop();
+    setInterval(tick, 1000);
   })();
   </script>
 </body>
