@@ -1,6 +1,8 @@
 package com.pta.pages;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -51,8 +53,13 @@ public class InventoryPage {
 
     public void openCart() {
         WebElement link = wait.until(ExpectedConditions.elementToBeClickable(cartLink));
-        link.click();
-        // Wait until URL navigates to cart
-        wait.until(d -> d.getCurrentUrl().contains("cart.html"));
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", link);
+        try {
+            link.click();
+            wait.until(ExpectedConditions.urlContains("cart.html"));
+        } catch (TimeoutException | org.openqa.selenium.ElementClickInterceptedException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", link);
+            wait.until(ExpectedConditions.urlContains("cart.html"));
+        }
     }
 }
