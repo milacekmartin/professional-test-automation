@@ -1,6 +1,7 @@
 package com.pta.pages;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -27,17 +28,10 @@ public class CheckoutPage {
     }
 
     public void fillAndContinue(String first, String last, String zip) {
-        WebElement fn = wait.until(ExpectedConditions.visibilityOfElementLocated(firstName));
-        fn.clear();
-        if (first != null && !first.isEmpty()) fn.sendKeys(first);
-
-        WebElement ln = driver.findElement(lastName);
-        ln.clear();
-        if (last != null && !last.isEmpty()) ln.sendKeys(last);
-
-        WebElement pc = driver.findElement(postalCode);
-        pc.clear();
-        if (zip != null && !zip.isEmpty()) pc.sendKeys(zip);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(firstName));
+        setField(firstName, first);
+        setField(lastName, last);
+        setField(postalCode, zip);
 
         WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(continueBtn));
         SafeClick.clickUntil(driver, btn,
@@ -49,6 +43,21 @@ public class CheckoutPage {
         WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(finishBtn));
         SafeClick.clickUntil(driver, btn, () -> driver.getCurrentUrl().contains("checkout-complete.html"));
         wait.until(ExpectedConditions.urlContains("checkout-complete.html"));
+    }
+
+    private void setField(By locator, String value) {
+        WebElement el = driver.findElement(locator);
+        el.clear();
+        if (value == null || value.isEmpty()) return;
+        el.sendKeys(value);
+        String actual = el.getAttribute("value");
+        if (!value.equals(actual)) {
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].value = arguments[1];" +
+                    "arguments[0].dispatchEvent(new Event('input',{bubbles:true}));" +
+                    "arguments[0].dispatchEvent(new Event('change',{bubbles:true}));",
+                    el, value);
+        }
     }
 
     public String errorMessage() {
