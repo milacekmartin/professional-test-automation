@@ -1,0 +1,1 @@
+{"total":2,"items":[{"uid":"7188898a989b2b248a8fc4b5ffd29179","name":"Demo · Login — negative","statistic":{"failed":0,"broken":0,"skipped":0,"passed":3,"unknown":0,"total":3}},{"uid":"2337fbc16bfef31d571297148d21bc23","name":"Demo · Checkout — negative (missing fields)","statistic":{"failed":0,"broken":0,"skipped":0,"passed":2,"unknown":0,"total":2}}]}
