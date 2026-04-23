@@ -37,6 +37,12 @@ public class CheckoutPage {
         SafeClick.clickUntil(driver, btn,
                 () -> driver.getCurrentUrl().contains("checkout-step-two.html")
                         || !driver.findElements(error).isEmpty());
+        if (!driver.getCurrentUrl().contains("checkout-step-two.html")
+                && driver.findElements(error).isEmpty()) {
+            ((JavascriptExecutor) driver).executeScript(
+                    "var f=document.querySelector('form'); if(f){f.submit();}");
+            try { Thread.sleep(1500); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+        }
     }
 
     public void finish() {
