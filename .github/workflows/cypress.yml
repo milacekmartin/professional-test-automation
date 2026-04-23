@@ -23,6 +23,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: cypress-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -211,7 +215,20 @@ jobs:
           name: cypress-allure-report
           path: allure/report/
 
-      - name: 🚀 Deploy Cypress Allure report to GitHub Pages
+      - name: 🚀 Deploy per-run report (/cypress/runs/<N>/)
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure/report
+          publish_branch: gh-pages
+          destination_dir: cypress/runs/${{ github.run_number }}
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(cypress): publish Allure report #${{ github.run_number }} [skip ci]'
+
+      - name: 🚀 Deploy "latest" mirror (/cypress/)
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -222,7 +239,7 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs(cypress): publish Allure report #${{ github.run_number }} [skip ci]'
+          commit_message: 'docs(cypress): update latest mirror from run #${{ github.run_number }} [skip ci]'
 
       - name: ❌ Fail the workflow if tests failed
         if: steps.tests.outcome != 'success'

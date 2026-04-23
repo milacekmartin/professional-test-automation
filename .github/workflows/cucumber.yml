@@ -20,6 +20,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: cucumber-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -273,7 +277,20 @@ jobs:
           name: cucumber-report
           path: cucumber-selenium/target/cucumber-report/
 
-      - name: 🚀 Deploy Cucumber report to GitHub Pages
+      - name: 🚀 Deploy per-run report (/cucumber/runs/<N>/)
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: cucumber-selenium/target/cucumber-report
+          publish_branch: gh-pages
+          destination_dir: cucumber/runs/${{ github.run_number }}
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(cucumber): per-run report #${{ github.run_number }} [skip ci]'
+
+      - name: 🚀 Deploy "latest" mirror (/cucumber/)
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -284,7 +301,7 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs(cucumber): publish report #${{ github.run_number }} [skip ci]'
+          commit_message: 'docs(cucumber): update latest mirror from run #${{ github.run_number }} [skip ci]'
 
       - name: ❌ Fail the workflow if tests failed
         if: steps.tests.outcome != 'success'

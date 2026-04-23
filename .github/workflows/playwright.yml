@@ -20,6 +20,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: playwright-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -197,7 +201,20 @@ jobs:
           name: playwright-allure-report
           path: playwright/allure-report
 
-      - name: 🚀 Deploy Playwright HTML report
+      - name: 🚀 Deploy per-run report (/playwright/runs/<N>/)
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright/playwright-report
+          publish_branch: gh-pages
+          destination_dir: playwright/runs/${{ github.run_number }}
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(playwright): per-run HTML report #${{ github.run_number }} [skip ci]'
+
+      - name: 🚀 Deploy "latest" mirror (/playwright/)
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -208,7 +225,7 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs(playwright): publish HTML report #${{ github.run_number }} [skip ci]'
+          commit_message: 'docs(playwright): update latest mirror from run #${{ github.run_number }} [skip ci]'
 
       - name: 🚀 Deploy Playwright Allure report
         if: always()
