@@ -53,15 +53,20 @@ public class CheckoutPage {
 
     private void setField(By locator, String value) {
         WebElement el = driver.findElement(locator);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].focus();", el);
         el.clear();
         if (value == null || value.isEmpty()) return;
         el.sendKeys(value);
-        String actual = el.getAttribute("value");
-        if (!value.equals(actual)) {
+        for (int i = 0; i < 3; i++) {
+            String actual = el.getAttribute("value");
+            if (value.equals(actual)) return;
             ((JavascriptExecutor) driver).executeScript(
-                    "arguments[0].value = arguments[1];" +
-                    "arguments[0].dispatchEvent(new Event('input',{bubbles:true}));" +
-                    "arguments[0].dispatchEvent(new Event('change',{bubbles:true}));",
+                    "var el=arguments[0], v=arguments[1];" +
+                    "var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;" +
+                    "setter.call(el, v);" +
+                    "el.dispatchEvent(new Event('input',{bubbles:true}));" +
+                    "el.dispatchEvent(new Event('change',{bubbles:true}));" +
+                    "el.dispatchEvent(new Event('blur',{bubbles:true}));",
                     el, value);
         }
     }
