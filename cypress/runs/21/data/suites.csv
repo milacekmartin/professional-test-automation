@@ -1,0 +1,7 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Sun Apr 26 08:08:33 UTC 2026","Sun Apr 26 08:08:33 UTC 2026","648","Demo · Login — negative","","","","","wrong password is rejected",""
+"passed","Sun Apr 26 08:08:29 UTC 2026","Sun Apr 26 08:08:30 UTC 2026","1447","Demo · Login — valid","","","","","standard_user logs in and lands on the inventory page",""
+"passed","Sun Apr 26 08:08:33 UTC 2026","Sun Apr 26 08:08:34 UTC 2026","134","Demo · Login — negative","","","","","empty username shows error",""
+"passed","Sun Apr 26 08:08:35 UTC 2026","Sun Apr 26 08:08:36 UTC 2026","1049","Demo · Cart + checkout — positive","","","","","adds Sauce Labs Backpack to cart",""
+"passed","Sun Apr 26 08:08:36 UTC 2026","Sun Apr 26 08:08:38 UTC 2026","1770","Demo · Cart + checkout — positive","","","","","completes a full checkout",""
+"passed","Sun Apr 26 08:08:32 UTC 2026","Sun Apr 26 08:08:33 UTC 2026","1007","Demo · Login — negative","","","","","locked_out_user is rejected",""
