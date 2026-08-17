@@ -20,8 +20,18 @@ on:
         required: false
         default: ""
 
+
+# All three demo workflows publish their HTML report to the same gh-pages
+# branch (twice each: the per-run folder and the "latest" mirror). Without a
+# shared lock, two runs race on `git push` and the loser dies with
+# "! [rejected] gh-pages (fetch first)" — failing the whole run even though
+# every test passed. The website reads the run conclusion for its status
+# badges, so a green suite showed up as red.
+#
+# One group across all three serialises only the runs, never cancels them:
+# a queued run still publishes its report, just a moment later.
 concurrency:
-  group: playwright-pages-deploy
+  group: gh-pages-deploy
   cancel-in-progress: false
 
 jobs:
