@@ -21,18 +21,6 @@ on:
         default: ""
 
 
-# All three demo workflows publish their HTML report to the same gh-pages
-# branch (twice each: the per-run folder and the "latest" mirror). Without a
-# shared lock, two runs race on `git push` and the loser dies with
-# "! [rejected] gh-pages (fetch first)" — failing the whole run even though
-# every test passed. The website reads the run conclusion for its status
-# badges, so a green suite showed up as red.
-#
-# One group across all three serialises only the runs, never cancels them:
-# a queued run still publishes its report, just a moment later.
-concurrency:
-  group: gh-pages-deploy
-  cancel-in-progress: false
 
 jobs:
   test:
@@ -214,7 +202,16 @@ jobs:
           name: playwright-allure-report
           path: playwright/allure-report
 
-      - name: 🚀 Deploy per-run report (/playwright/runs/<N>/)
+      # gh-pages is written by all three demo workflows, more than once each.
+      # Overlapping runs race on `git push`; the loser dies with
+      # "! [rejected] (fetch first)" and fails a run whose tests all passed —
+      # and the website reads the run conclusion for its status badges.
+      # A concurrency group was the wrong cure: with three runs queued GitHub
+      # cancels the pending one, and `cancelled` reads just as red.
+      # So let them race, and retry the push once after a short pause.
+      - name: 🚀 Deploy per-run report (/playwright/runs/<N>/) — attempt 1
+        id: deploy1
+        continue-on-error: true
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -227,7 +224,26 @@ jobs:
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'docs(playwright): per-run HTML report #${{ github.run_number }} [skip ci]'
 
-      - name: 🚀 Deploy "latest" mirror (/playwright/)
+      - name: ⏳ Pause before retrying the gh-pages push (1)
+        if: always() && steps.deploy1.outcome == 'failure'
+        run: sleep 20
+
+      - name: 🚀 Deploy per-run report (/playwright/runs/<N>/) — attempt 2
+        if: always() && steps.deploy1.outcome == 'failure'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright/playwright-report
+          publish_branch: gh-pages
+          destination_dir: playwright/runs/${{ github.run_number }}
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(playwright): per-run HTML report #${{ github.run_number }} [skip ci]'
+
+      - name: 🚀 Deploy "latest" mirror (/playwright/) — attempt 1
+        id: deploy2
+        continue-on-error: true
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -240,8 +256,44 @@ jobs:
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'docs(playwright): update latest mirror from run #${{ github.run_number }} [skip ci]'
 
-      - name: 🚀 Deploy Playwright Allure report
+      - name: ⏳ Pause before retrying the gh-pages push (2)
+        if: always() && steps.deploy2.outcome == 'failure'
+        run: sleep 20
+
+      - name: 🚀 Deploy "latest" mirror (/playwright/) — attempt 2
+        if: always() && steps.deploy2.outcome == 'failure'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright/playwright-report
+          publish_branch: gh-pages
+          destination_dir: playwright
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(playwright): update latest mirror from run #${{ github.run_number }} [skip ci]'
+
+      - name: 🚀 Deploy Playwright Allure report — attempt 1
+        id: deploy3
+        continue-on-error: true
         if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright/allure-report
+          publish_branch: gh-pages
+          destination_dir: playwright-allure
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs(playwright): publish Allure report #${{ github.run_number }} [skip ci]'
+
+      - name: ⏳ Pause before retrying the gh-pages push (3)
+        if: always() && steps.deploy3.outcome == 'failure'
+        run: sleep 20
+
+      - name: 🚀 Deploy Playwright Allure report — attempt 2
+        if: always() && steps.deploy3.outcome == 'failure'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
