@@ -1,1 +1,1 @@
-{"total":2,"items":[{"uid":"e76a204795d26d1565fab5ab5260e606","name":"\uD83D\uDD34 Product defects (real bugs found)","statistic":{"failed":1,"broken":0,"skipped":0,"passed":0,"unknown":0,"total":1}},{"uid":"da1027eadd312ba3007ac25697980052","name":"\uD83D\uDFE3 Flaky / timing issues","statistic":{"failed":1,"broken":0,"skipped":0,"passed":0,"unknown":0,"total":1}}]}
+{"total":0,"items":[]}
