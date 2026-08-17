@@ -59,8 +59,13 @@ jobs:
         run: |
           KEYS="${{ github.event.inputs.tests }}"
           if [ -z "$KEYS" ]; then
-            echo "spec=" >> "$GITHUB_OUTPUT"
-            echo "No demo filter — running full default suite."
+            # No selection: run the full suite EXCEPT demo/bug.cy.ts. That spec is
+            # designed to fail, so including it here turned every unfiltered run red
+            # — and the website's status badge reads the run conclusion, so the
+            # public page advertised a failing suite. Pick "bug" explicitly to see it.
+            SPECS=$(find cypress/e2e -name '*.cy.ts' ! -name 'bug.cy.ts' | sort | paste -sd, -)
+            echo "spec=$SPECS" >> "$GITHUB_OUTPUT"
+            echo "No demo filter — full suite minus the intentional-bug spec: $SPECS"
             exit 0
           fi
           declare -A MAP

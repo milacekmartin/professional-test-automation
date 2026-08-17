@@ -84,7 +84,10 @@ jobs:
           if [ -n "${{ steps.tagfilter.outputs.filter }}" ]; then
             mvn -B test -Dcucumber.filter.tags="${{ steps.tagfilter.outputs.filter }}"
           else
-            mvn -B test
+            # No selection: run everything EXCEPT @bug. That scenario is built to
+            # fail, so an unfiltered run always went red — and the website badge
+            # reads the run conclusion. Pick "bug" explicitly to see it.
+            mvn -B test -Dcucumber.filter.tags="not @bug"
           fi
         continue-on-error: true
         id: tests

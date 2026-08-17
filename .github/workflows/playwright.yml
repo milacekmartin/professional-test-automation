@@ -92,7 +92,10 @@ jobs:
           if [ -n "${{ steps.specs.outputs.spec }}" ]; then
             npx playwright test ${{ steps.specs.outputs.spec }}
           else
-            yarn pw:test
+            # No selection: run everything EXCEPT the intentional-bug test. It is
+            # built to fail, so an unfiltered run always went red — and the website
+            # badge reads the run conclusion. Pick "bug" explicitly to see it.
+            npx playwright test --grep-invert "expected-to-fail"
           fi
         continue-on-error: true
         id: tests
